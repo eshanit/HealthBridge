@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">HealthBridge</string>
+    <string name="title_activity_main">HealthBridge</string>
+    <string name="package_name">com.healthbridge.nurse</string>
+    <string name="custom_url_scheme">com.healthbridge.nurse</string>
+</resources>

@@ -1,0 +1,72 @@
+# =========================
+# HealthBridge Root .gitignore
+# =========================
+
+# --- Node.js ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- Environment Files (SENSITIVE - NEVER COMMIT) ---
+.env
+.env.*
+!.env.example
+
+# --- IDE & Editor ---
+.DS_Store
+.fleet/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# --- Build Outputs ---
+dist/
+.output/
+.data/
+.nuxt/
+.nitro/
+.cache/
+
+# --- Laravel / PHP ---
+.phpunit.cache/
+.phpunit.result.cache
+.phpactor.json
+vendor/
+bootstrap/ssr
+bootstrap/cache/*.php
+!bootstrap/cache/.gitignore
+
+# --- Storage & Logs ---
+storage/*.key
+storage/pail
+logs/
+*.log
+
+# --- Public Build Assets ---
+public/build/
+public/hot
+public/storage
+
+# --- Database ---
+*.sqlite
+*.sqlite-journal
+database/*.sqlite
+
+# --- Temporary Files ---
+*.tmp
+*.temp
+Thumbs.db
+
+# --- Homestead ---
+Homestead.json
+Homestead.yaml
+
+# --- Auth Config ---
+auth.json
+
+# --- Other ---
+.zed/
+.nova/

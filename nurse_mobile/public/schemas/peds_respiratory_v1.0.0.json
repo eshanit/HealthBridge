@@ -1,0 +1,597 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "id": "peds_respiratory",
+  "version": "1.0.0",
+  "title": "Pediatric Respiratory Distress Assessment",
+  "description": "WHO IMCI protocol for children 2 months to 5 years with cough or difficulty breathing. Used to classify illness and determine urgent referral needs.",
+  "protocol": "WHO_IMCI",
+  "applicableAgeRange": {
+    "minMonths": 2,
+    "maxMonths": 59
+  },
+  "estimatedCompletionMinutes": 5,
+  "workflow": [
+    {
+      "id": "patient_info",
+      "name": "Patient Information",
+      "clinicalStep": 1,
+      "allowedTransitions": ["danger_signs"]
+    },
+    {
+      "id": "danger_signs",
+      "name": "General Danger Signs",
+      "clinicalStep": 2,
+      "allowedTransitions": ["symptoms"],
+      "transitionGuard": {
+        "condition": {
+          "field": "danger_signs_any",
+          "operator": "eq",
+          "value": true
+        },
+        "message": "Child has danger signs. Complete assessment but prioritize urgent referral."
+      }
+    },
+    {
+      "id": "symptoms",
+      "name": "Respiratory Symptoms",
+      "clinicalStep": 3,
+      "allowedTransitions": ["measurements"]
+    },
+    {
+      "id": "measurements",
+      "name": "Clinical Measurements",
+      "clinicalStep": 4,
+      "allowedTransitions": ["observations"]
+    },
+    {
+      "id": "observations",
+      "name": "Clinical Observations",
+      "clinicalStep": 5,
+      "allowedTransitions": ["assessment"]
+    },
+    {
+      "id": "assessment",
+      "name": "Classification & Action",
+      "clinicalStep": 6,
+      "allowedTransitions": [],
+      "requiredFields": ["triage_priority", "action_plan"]
+    }
+  ],
+  "sections": [
+    {
+      "id": "section_patient",
+      "title": "Patient Information",
+      "description": "Basic identification and age",
+      "icon": "👶",
+      "fields": ["patient_age_months", "patient_age_estimated"],
+      "isCollapsible": false
+    },
+    {
+      "id": "section_danger_signs",
+      "title": "General Danger Signs",
+      "description": "Check ALL general danger signs. ANY positive sign requires URGENT referral.",
+      "icon": "⚠️",
+      "fields": [
+        "danger_unable_drink",
+        "danger_vomits_everything",
+        "danger_convulsions",
+        "danger_lethargic",
+        "danger_signs_any"
+      ],
+      "isCollapsible": false,
+      "uiHint": "urgent"
+    },
+    {
+      "id": "section_symptoms",
+      "title": "Respiratory Symptoms",
+      "description": "History of current illness",
+      "icon": "🤒",
+      "fields": [
+        "symptom_cough_days",
+        "symptom_difficulty_breathing",
+        "symptom_fever",
+        "symptom_fever_days"
+      ],
+      "isCollapsible": true
+    },
+    {
+      "id": "section_measurements",
+      "title": "Clinical Measurements",
+      "description": "Count respiratory rate for 60 seconds. Use timer if available.",
+      "icon": "📊",
+      "fields": [
+        "measurement_respiratory_rate",
+        "measurement_respiratory_timer",
+        "measurement_temperature",
+        "measurement_spo2"
+      ],
+      "isCollapsible": true
+    },
+    {
+      "id": "section_observations",
+      "title": "Clinical Observations",
+      "description": "Physical examination findings",
+      "icon": "👁️",
+      "fields": [
+        "observation_chest_indrawing",
+        "observation_stridor",
+        "observation_wheeze",
+        "observation_nasal_flaring",
+        "observation_cyanosis",
+        "observation_general_appearance"
+      ],
+      "isCollapsible": true,
+      "visibleIf": {
+        "operator": "not",
+        "condition": {
+          "field": "danger_signs_any",
+          "operator": "eq",
+          "value": true
+        }
+      }
+    },
+    {
+      "id": "section_assessment",
+      "title": "Clinical Classification & Action",
+      "description": "Based on IMCI classification. Auto-calculated from findings.",
+      "icon": "🎯",
+      "fields": [
+        "triage_priority",
+        "triage_classification",
+        "action_plan",
+        "action_medication",
+        "action_followup"
+      ],
+      "isCollapsible": false
+    }
+  ],
+  "fields": [
+    {
+      "id": "patient_age_months",
+      "type": "number",
+      "label": "Age in months",
+      "clinicalNote": "Critical for determining fast breathing thresholds. Use months for children under 5 years.",
+      "required": true,
+      "config": {
+        "min": 2,
+        "max": 59,
+        "step": 1,
+        "suffix": " months"
+      },
+      "validation": {
+        "type": "range",
+        "message": "Child must be between 2 months and 5 years for this protocol"
+      }
+    },
+    {
+      "id": "patient_age_estimated",
+      "type": "radio",
+      "label": "Is this age estimated?",
+      "clinicalNote": "If exact age unknown, document this for interpretation.",
+      "options": ["Exact (from card)", "Estimated (recall)", "Unknown"],
+      "defaultValue": "Exact (from card)"
+    },
+    {
+      "id": "danger_unable_drink",
+      "type": "boolean",
+      "label": "Unable to drink or breastfeed",
+      "clinicalNote": "GENERAL DANGER SIGN. Child cannot drink, or is too weak to drink.",
+      "uiHint": "urgent",
+      "required": true,
+      "config": {
+        "trueLabel": "Yes - cannot drink",
+        "falseLabel": "No - drinks normally"
+      }
+    },
+    {
+      "id": "danger_vomits_everything",
+      "type": "boolean",
+      "label": "Vomits everything",
+      "clinicalNote": "GENERAL DANGER SIGN. Cannot keep anything down.",
+      "uiHint": "urgent",
+      "required": true,
+      "config": {
+        "trueLabel": "Yes - vomits all fluids",
+        "falseLabel": "No - keeps some fluids down"
+      }
+    },
+    {
+      "id": "danger_convulsions",
+      "type": "boolean",
+      "label": "History of convulsions",
+      "clinicalNote": "GENERAL DANGER SIGN. During this illness.",
+      "uiHint": "urgent",
+      "required": true,
+      "config": {
+        "trueLabel": "Yes - had convulsions",
+        "falseLabel": "No - no convulsions"
+      }
+    },
+    {
+      "id": "danger_lethargic",
+      "type": "boolean",
+      "label": "Lethargic or unconscious",
+      "clinicalNote": "GENERAL DANGER SIGN. Child abnormally sleepy or unresponsive.",
+      "uiHint": "urgent",
+      "required": true,
+      "config": {
+        "trueLabel": "Yes - lethargic/unconscious",
+        "falseLabel": "No - alert and responsive"
+      }
+    },
+    {
+      "id": "danger_signs_any",
+      "type": "calculated",
+      "label": "Any general danger sign present?",
+      "clinicalNote": "Auto-calculated. ANY positive danger sign = URGENT REFERRAL.",
+      "config": {
+        "expression": "danger_unable_drink || danger_vomits_everything || danger_convulsions || danger_lethargic"
+      }
+    },
+    {
+      "id": "symptom_cough_days",
+      "type": "number",
+      "label": "Days of cough",
+      "clinicalNote": "Duration of current cough episode.",
+      "config": {
+        "min": 0,
+        "max": 30,
+        "step": 1,
+        "suffix": " days"
+      }
+    },
+    {
+      "id": "symptom_difficulty_breathing",
+      "type": "boolean",
+      "label": "Difficulty breathing reported",
+      "clinicalNote": "Parent/caregiver reports child has difficulty breathing.",
+      "required": true,
+      "config": {
+        "trueLabel": "Yes - difficulty breathing",
+        "falseLabel": "No - breathing normally"
+      }
+    },
+    {
+      "id": "symptom_fever",
+      "type": "boolean",
+      "label": "Fever present",
+      "clinicalNote": "History of fever or feels hot.",
+      "required": true,
+      "config": {
+        "trueLabel": "Yes - has fever",
+        "falseLabel": "No - no fever"
+      }
+    },
+    {
+      "id": "symptom_fever_days",
+      "type": "number",
+      "label": "Days with fever",
+      "visibleIf": {
+        "field": "symptom_fever",
+        "operator": "eq",
+        "value": true
+      },
+      "config": {
+        "min": 1,
+        "max": 14,
+        "step": 1,
+        "suffix": " days"
+      }
+    },
+    {
+      "id": "measurement_respiratory_rate",
+      "type": "number",
+      "label": "Respiratory Rate",
+      "clinicalNote": "Count breaths for 60 seconds. Use timer below.",
+      "required": true,
+      "uiHint": "warning",
+      "config": {
+        "min": 0,
+        "max": 120,
+        "step": 1,
+        "suffix": " breaths/min"
+      },
+      "validation": {
+        "type": "clinical",
+        "message": "Count for full 60 seconds for accuracy"
+      }
+    },
+    {
+      "id": "measurement_respiratory_timer",
+      "type": "timer",
+      "label": "60-second timer",
+      "clinicalNote": "Tap to start 60-second count for respiratory rate.",
+      "config": {
+        "duration": 60,
+        "autoStart": false
+      }
+    },
+    {
+      "id": "measurement_temperature",
+      "type": "number",
+      "label": "Temperature",
+      "clinicalNote": "Axillary temperature if available.",
+      "config": {
+        "min": 35,
+        "max": 42,
+        "step": 0.1,
+        "suffix": " °C"
+      }
+    },
+    {
+      "id": "measurement_spo2",
+      "type": "number",
+      "label": "Oxygen Saturation (SpO₂)",
+      "clinicalNote": "If pulse oximeter available.",
+      "config": {
+        "min": 70,
+        "max": 100,
+        "step": 1,
+        "suffix": " %"
+      },
+      "validation": {
+        "type": "range",
+        "message": "SpO₂ < 90% indicates severe hypoxia"
+      }
+    },
+    {
+      "id": "observation_chest_indrawing",
+      "type": "boolean",
+      "label": "Chest indrawing",
+      "clinicalNote": "Lower chest wall goes IN during inspiration (not just intercostal).",
+      "required": true,
+      "uiHint": "warning",
+      "config": {
+        "trueLabel": "Yes - chest indrawing present",
+        "falseLabel": "No - normal chest movement"
+      }
+    },
+    {
+      "id": "observation_stridor",
+      "type": "boolean",
+      "label": "Stridor (noisy breathing)",
+      "clinicalNote": "Harsh sound during inspiration.",
+      "config": {
+        "trueLabel": "Yes - stridor heard",
+        "falseLabel": "No - no stridor"
+      }
+    },
+    {
+      "id": "observation_wheeze",
+      "type": "boolean",
+      "label": "Wheeze",
+      "clinicalNote": "Whistling sound during expiration.",
+      "config": {
+        "trueLabel": "Yes - wheeze heard",
+        "falseLabel": "No - no wheeze"
+      }
+    },
+    {
+      "id": "observation_nasal_flaring",
+      "type": "boolean",
+      "label": "Nasal flaring",
+      "clinicalNote": "Nostrils widen during inspiration.",
+      "config": {
+        "trueLabel": "Yes - nasal flaring",
+        "falseLabel": "No - normal breathing"
+      }
+    },
+    {
+      "id": "observation_cyanosis",
+      "type": "boolean",
+      "label": "Cyanosis (blue lips/tongue)",
+      "clinicalNote": "SEVERE SIGN. Blue discoloration.",
+      "uiHint": "urgent",
+      "config": {
+        "trueLabel": "Yes - cyanosis present",
+        "falseLabel": "No - normal color"
+      }
+    },
+    {
+      "id": "observation_general_appearance",
+      "type": "select",
+      "label": "General appearance",
+      "clinicalNote": "Overall assessment of child.",
+      "options": [
+        "Alert, active, smiling",
+        "Irritable, consolable",
+        "Lethargic but rousable",
+        "Unresponsive or severely lethargic"
+      ],
+      "defaultValue": "Alert, active, smiling"
+    },
+    {
+      "id": "triage_priority",
+      "type": "calculated",
+      "label": "Triage Priority",
+      "clinicalNote": "Auto-calculated based on IMCI classification.",
+      "config": {
+        "expression": {
+          "conditions": [
+            {
+              "if": "danger_signs_any || observation_cyanosis || measurement_spo2 < 90",
+              "then": "red"
+            },
+            {
+              "if": "observation_chest_indrawing || fast_breathing",
+              "then": "yellow"
+            },
+            {
+              "if": "true",
+              "then": "green"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "triage_classification",
+      "type": "calculated",
+      "label": "IMCI Classification",
+      "config": {
+        "expression": {
+          "conditions": [
+            {
+              "if": "danger_signs_any || observation_cyanosis",
+              "then": "SEVERE PNEUMONIA OR VERY SEVERE DISEASE"
+            },
+            {
+              "if": "observation_chest_indrawing",
+              "then": "SEVERE PNEUMONIA"
+            },
+            {
+              "if": "fast_breathing",
+              "then": "PNEUMONIA"
+            },
+            {
+              "if": "true",
+              "then": "NO PNEUMONIA: COUGH OR COLD"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "action_plan",
+      "type": "calculated",
+      "label": "Recommended Action",
+      "config": {
+        "expression": {
+          "conditions": [
+            {
+              "if": "triage_priority == 'red'",
+              "then": "URGENT REFERRAL to hospital. Give first dose antibiotic if referral delayed >2 hours."
+            },
+            {
+              "if": "triage_priority == 'yellow'",
+              "then": "Start antibiotic. Advise caregiver. Follow-up in 2 days."
+            },
+            {
+              "if": "triage_priority == 'green'",
+              "then": "Home care. Advise on fever management and danger signs. Return if worse."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "action_medication",
+      "type": "calculated",
+      "label": "Recommended Medication",
+      "visibleIf": {
+        "field": "triage_priority",
+        "operator": "in",
+        "value": ["red", "yellow"]
+      },
+      "config": {
+        "expression": {
+          "conditions": [
+            {
+              "if": "patient_age_months < 12",
+              "then": "Amoxicillin: 250mg orally twice daily for 5 days"
+            },
+            {
+              "if": "patient_age_months >= 12",
+              "then": "Amoxicillin: 500mg orally twice daily for 5 days"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "action_followup",
+      "type": "calculated",
+      "label": "Follow-up Timing",
+      "config": {
+        "expression": {
+          "conditions": [
+            {
+              "if": "triage_priority == 'red'",
+              "then": "IMMEDIATE (today)"
+            },
+            {
+              "if": "triage_priority == 'yellow'",
+              "then": "2 days"
+            },
+            {
+              "if": "triage_priority == 'green'",
+              "then": "Return only if symptoms worsen"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "calculations": [
+    {
+      "id": "fast_breathing",
+      "name": "Fast Breathing Determination",
+      "description": "WHO IMCI fast breathing thresholds by age",
+      "expression": {
+        "conditions": [
+          {
+            "if": "patient_age_months >= 2 && patient_age_months < 12 && measurement_respiratory_rate > 50",
+            "then": true
+          },
+          {
+            "if": "patient_age_months >= 12 && patient_age_months < 60 && measurement_respiratory_rate > 40",
+            "then": true
+          },
+          {
+            "if": "true",
+            "then": false
+          }
+        ]
+      }
+    }
+  ],
+  "triageLogic": [
+    {
+      "id": "who_imci_red",
+      "name": "RED PRIORITY - Very Severe Disease",
+      "conditions": [
+        "danger_signs_any == true",
+        "observation_cyanosis == true",
+        "measurement_spo2 < 90"
+      ],
+      "priority": "red",
+      "actions": ["urgent_referral", "first_dose_antibiotic"]
+    },
+    {
+      "id": "who_imci_yellow",
+      "name": "YELLOW PRIORITY - Severe Pneumonia",
+      "conditions": [
+        "observation_chest_indrawing == true",
+        "fast_breathing == true && measurement_spo2 >= 90"
+      ],
+      "priority": "yellow",
+      "actions": ["start_antibiotic", "follow_up_2days"]
+    },
+    {
+      "id": "who_imci_green",
+      "name": "GREEN PRIORITY - No Pneumonia",
+      "conditions": [
+        "danger_signs_any == false",
+        "observation_chest_indrawing == false",
+        "fast_breathing == false"
+      ],
+      "priority": "green",
+      "actions": ["home_care_advice"]
+    }
+  ],
+  "metadata": {
+    "created": "2024-03-15T00:00:00Z",
+    "lastUpdated": "2024-03-15T00:00:00Z",
+    "whoReference": "IMCI Chart 1: Cough or Difficulty Breathing",
+    "whoVersion": "2014",
+    "validityPeriod": {
+      "start": "2024-03-15",
+      "end": "2025-03-15"
+    },
+    "checksum": "sha256:abc123def456...",
+    "compatibility": {
+      "minAppVersion": "1.0.0",
+      "maxAppVersion": "2.0.0"
+    }
+  }
+}

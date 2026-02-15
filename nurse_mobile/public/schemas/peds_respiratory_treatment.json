@@ -1,0 +1,175 @@
+{
+  "id": "peds_respiratory_treatment",
+  "version": "1.0.0",
+  "title": "Pediatric Respiratory Treatment (IMCI)",
+  "description": "WHO IMCI-based treatment for pediatric respiratory illness",
+  "protocol": "WHO_IMCI",
+  "linkedAssessment": "peds_respiratory",
+  "applicableAgeRange": {
+    "minMonths": 2,
+    "maxMonths": 59
+  },
+  "estimatedCompletionMinutes": 15,
+
+  "workflow": [
+    { "id": "summary", "name": "Classification Summary", "allowedTransitions": ["emergency", "antibiotics", "home_care"] },
+    { "id": "emergency", "name": "Emergency Care", "allowedTransitions": ["referral"] },
+    { "id": "antibiotics", "name": "Antibiotic Treatment", "allowedTransitions": ["counseling"] },
+    { "id": "home_care", "name": "Home Care Advice", "allowedTransitions": ["counseling"] },
+    { "id": "referral", "name": "Urgent Referral", "allowedTransitions": [] },
+    { "id": "counseling", "name": "Caregiver Counseling", "allowedTransitions": ["complete"] },
+    { "id": "complete", "name": "Treatment Complete", "allowedTransitions": [] }
+  ],
+
+  "sections": [
+    {
+      "id": "summary",
+      "title": "IMCI Classification",
+      "description": "Automatically generated from assessment triage",
+      "fields": ["triage_priority", "recommended_actions"]
+    },
+    {
+      "id": "emergency",
+      "title": "Emergency Care",
+      "description": "Immediate life-saving actions",
+      "uiHint": "urgent",
+      "fields": ["airway_position", "oxygen_given", "first_dose_antibiotic", "keep_warm"]
+    },
+    {
+      "id": "antibiotics",
+      "title": "Antibiotic Treatment",
+      "fields": ["antibiotic_type", "dose_mg", "duration_days"]
+    },
+    {
+      "id": "home_care",
+      "title": "Home Care Advice",
+      "fields": ["fluids", "continue_feeding", "clear_nose", "return_immediately"]
+    },
+    {
+      "id": "referral",
+      "title": "Referral",
+      "fields": ["referral_reason", "facility", "transport_arranged"]
+    },
+    {
+      "id": "counseling",
+      "title": "Caregiver Counseling",
+      "fields": ["danger_signs_explained", "follow_up_date"]
+    }
+  ],
+
+  "fields": [
+    {
+      "id": "triage_priority",
+      "type": "select",
+      "label": "Triage Priority",
+      "options": ["red", "yellow", "green"],
+      "readOnly": true
+    },
+    {
+      "id": "recommended_actions",
+      "type": "multiselect",
+      "label": "Recommended Actions",
+      "readOnly": true
+    },
+
+    {
+      "id": "airway_position",
+      "type": "checkbox",
+      "label": "Position airway and clear secretions",
+      "visibleIf": { "field": "triage_priority", "operator": "eq", "value": "red" }
+    },
+    {
+      "id": "oxygen_given",
+      "type": "checkbox",
+      "label": "Give oxygen if available",
+      "visibleIf": { "field": "triage_priority", "operator": "eq", "value": "red" }
+    },
+    {
+      "id": "first_dose_antibiotic",
+      "type": "checkbox",
+      "label": "Give first dose of antibiotic",
+      "visibleIf": { "field": "triage_priority", "operator": "in", "value": ["red", "yellow"] }
+    },
+    {
+      "id": "keep_warm",
+      "type": "checkbox",
+      "label": "Keep child warm"
+    },
+
+    {
+      "id": "antibiotic_type",
+      "type": "select",
+      "label": "Antibiotic",
+      "options": ["Amoxicillin", "Penicillin", "Ceftriaxone"],
+      "visibleIf": { "field": "triage_priority", "operator": "in", "value": ["red", "yellow"] }
+    },
+    {
+      "id": "dose_mg",
+      "type": "number",
+      "label": "Dose (mg)",
+      "visibleIf": { "field": "antibiotic_type", "operator": "notEmpty" }
+    },
+    {
+      "id": "duration_days",
+      "type": "number",
+      "label": "Duration (days)",
+      "config": { "min": 3, "max": 10, "step": 1 },
+      "visibleIf": { "field": "antibiotic_type", "operator": "notEmpty" }
+    },
+
+    {
+      "id": "fluids",
+      "type": "checkbox",
+      "label": "Give extra fluids",
+      "visibleIf": { "field": "triage_priority", "operator": "eq", "value": "green" }
+    },
+    {
+      "id": "continue_feeding",
+      "type": "checkbox",
+      "label": "Continue feeding/breastfeeding",
+      "visibleIf": { "field": "triage_priority", "operator": "eq", "value": "green" }
+    },
+    {
+      "id": "clear_nose",
+      "type": "checkbox",
+      "label": "Clear blocked nose",
+      "visibleIf": { "field": "triage_priority", "operator": "eq", "value": "green" }
+    },
+    {
+      "id": "return_immediately",
+      "type": "checkbox",
+      "label": "Return immediately if worse",
+      "visibleIf": { "field": "triage_priority", "operator": "eq", "value": "green" }
+    },
+
+    {
+      "id": "referral_reason",
+      "type": "text",
+      "label": "Reason for referral",
+      "visibleIf": { "field": "triage_priority", "operator": "eq", "value": "red" }
+    },
+    {
+      "id": "facility",
+      "type": "text",
+      "label": "Referred to facility",
+      "visibleIf": { "field": "triage_priority", "operator": "eq", "value": "red" }
+    },
+    {
+      "id": "transport_arranged",
+      "type": "checkbox",
+      "label": "Transport arranged",
+      "visibleIf": { "field": "triage_priority", "operator": "eq", "value": "red" }
+    },
+
+    {
+      "id": "danger_signs_explained",
+      "type": "checkbox",
+      "label": "Danger signs explained to caregiver"
+    },
+    {
+      "id": "follow_up_date",
+      "type": "date",
+      "label": "Follow-up date"
+    }
+  ]
+}

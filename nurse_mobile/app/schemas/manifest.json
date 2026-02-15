@@ -1,0 +1,240 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "manifestVersion": "1.0.0",
+  "appName": "HealthBridge Companion - Frontliner",
+  "appVersion": "1.0.0",
+  "lastUpdated": "2024-03-15T10:00:00Z",
+  "clinicalProtocol": "WHO_IMCI",
+  "country": "Zimbabwe",
+  "language": "en",
+  "defaultLocale": "en",
+  "availableLocales": ["en", "sn"],
+  "schemas": [
+    {
+      "id": "peds_respiratory",
+      "name": "Pediatric Respiratory Distress Assessment",
+      "description": "WHO IMCI protocol for children 2 months to 5 years with cough or difficulty breathing",
+      "version": "1.0.0",
+      "protocol": "WHO_IMCI",
+      "protocolVersion": "2014",
+      "applicableAgeRange": {
+        "minMonths": 2,
+        "maxMonths": 59
+      },
+      "status": "active",
+      "priority": "high",
+      "downloadUrl": "/schemas/peds_respiratory_v1.0.0.json",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sizeBytes": 12567,
+      "compatibility": {
+        "minAppVersion": "1.0.0",
+        "maxAppVersion": "2.0.0"
+      },
+      "metadata": {
+        "created": "2024-03-15T00:00:00Z",
+        "lastUpdated": "2024-03-15T00:00:00Z",
+        "validityPeriod": {
+          "start": "2024-03-15",
+          "end": "2025-03-15"
+        },
+        "whoReference": "IMCI Chart 1: Cough or Difficulty Breathing",
+        "trainingRequired": true,
+        "estimatedCompletionMinutes": 5,
+        "riskLevel": "high",
+        "requiresSupervisorReview": false
+      },
+      "dependencies": [],
+      "localizations": [
+        {
+          "locale": "sn",
+          "downloadUrl": "/schemas/locales/sn/peds_respiratory_v1.0.0.json",
+          "sha256": "a1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef",
+          "sizeBytes": 13245,
+          "translationStatus": "complete",
+          "lastTranslated": "2024-03-15T09:30:00Z"
+        }
+      ]
+    },
+    {
+      "id": "peds_respiratory_treatment",
+      "name": "Pediatric Respiratory Treatment (IMCI)",
+      "description": "WHO IMCI-based treatment for pediatric respiratory illness",
+      "version": "1.0.0",
+      "protocol": "WHO_IMCI",
+      "protocolVersion": "2014",
+      "applicableAgeRange": {
+        "minMonths": 2,
+        "maxMonths": 59
+      },
+      "status": "active",
+      "priority": "high",
+      "downloadUrl": "/schemas/peds_respiratory_treatment.json",
+      "sha256": null,
+      "sizeBytes": 0,
+      "compatibility": {
+        "minAppVersion": "1.0.0",
+        "maxAppVersion": "2.0.0"
+      },
+      "metadata": {
+        "created": "2024-03-15T00:00:00Z",
+        "lastUpdated": "2024-03-15T00:00:00Z",
+        "validityPeriod": {
+          "start": "2024-03-15",
+          "end": "2025-03-15"
+        },
+        "whoReference": "IMCI Chart 1: Cough or Difficulty Breathing - Treatment",
+        "trainingRequired": false,
+        "estimatedCompletionMinutes": 15,
+        "riskLevel": "high",
+        "requiresSupervisorReview": false
+      },
+      "dependencies": ["peds_respiratory"],
+      "localizations": []
+    },
+    {
+      "id": "peds_diarrhea",
+      "name": "Pediatric Diarrhea Assessment",
+      "description": "WHO IMCI protocol for children with diarrhea",
+      "version": "0.9.0",
+      "protocol": "WHO_IMCI",
+      "protocolVersion": "2014",
+      "applicableAgeRange": {
+        "minMonths": 2,
+        "maxMonths": 59
+      },
+      "status": "beta",
+      "priority": "medium",
+      "downloadUrl": "/schemas/peds_diarrhea_v0.9.0.json",
+      "sha256": null,
+      "sizeBytes": 0,
+      "compatibility": {
+        "minAppVersion": "1.2.0",
+        "maxAppVersion": "2.0.0"
+      },
+      "metadata": {
+        "created": "2024-03-10T00:00:00Z",
+        "lastUpdated": "2024-03-12T00:00:00Z",
+        "validityPeriod": {
+          "start": null,
+          "end": null
+        },
+        "whoReference": "IMCI Chart 2: Diarrhea",
+        "trainingRequired": true,
+        "estimatedCompletionMinutes": 4,
+        "riskLevel": "medium",
+        "requiresSupervisorReview": false
+      },
+      "dependencies": [],
+      "localizations": []
+    },
+    {
+      "id": "peds_fever",
+      "name": "Pediatric Fever Assessment",
+      "description": "WHO IMCI protocol for children with fever",
+      "version": "0.5.0",
+      "protocol": "WHO_IMCI",
+      "protocolVersion": "2014",
+      "applicableAgeRange": {
+        "minMonths": 2,
+        "maxMonths": 59
+      },
+      "status": "development",
+      "priority": "medium",
+      "downloadUrl": null,
+      "sha256": null,
+      "sizeBytes": 0,
+      "compatibility": {
+        "minAppVersion": "1.3.0",
+        "maxAppVersion": "2.0.0"
+      },
+      "metadata": {
+        "created": "2024-03-05T00:00:00Z",
+        "lastUpdated": "2024-03-08T00:00:00Z",
+        "validityPeriod": {
+          "start": null,
+          "end": null
+        },
+        "whoReference": "IMCI Chart 3: Fever",
+        "trainingRequired": true,
+        "estimatedCompletionMinutes": 6,
+        "riskLevel": "high",
+        "requiresSupervisorReview": true
+      },
+      "dependencies": ["peds_respiratory"],
+      "localizations": []
+    },
+    {
+      "id": "adult_wound_care",
+      "name": "Adult Wound Care Assessment",
+      "description": "Basic wound assessment and dressing protocol",
+      "version": "0.3.0",
+      "protocol": "NATIONAL_GUIDELINE",
+      "protocolVersion": "2023",
+      "applicableAgeRange": {
+        "minMonths": 180,
+        "maxMonths": null
+      },
+      "status": "development",
+      "priority": "low",
+      "downloadUrl": null,
+      "sha256": null,
+      "sizeBytes": 0,
+      "compatibility": {
+        "minAppVersion": "1.5.0",
+        "maxAppVersion": "2.0.0"
+      },
+      "metadata": {
+        "created": "2024-02-28T00:00:00Z",
+        "lastUpdated": "2024-03-01T00:00:00Z",
+        "validityPeriod": {
+          "start": null,
+          "end": null
+        },
+        "whoReference": null,
+        "trainingRequired": false,
+        "estimatedCompletionMinutes": 3,
+        "riskLevel": "low",
+        "requiresSupervisorReview": false
+      },
+      "dependencies": [],
+      "localizations": []
+    }
+  ],
+  "schemaStatusDefinitions": {
+    "development": "Schema is under active development, not ready for clinical use",
+    "beta": "Schema is complete but undergoing field testing",
+    "active": "Schema is approved for clinical use",
+    "deprecated": "Schema is being phased out, do not use for new assessments",
+    "retired": "Schema is no longer supported"
+  },
+  "priorityDefinitions": {
+    "high": "Core protocol, required for basic clinical function",
+    "medium": "Important protocol, required for comprehensive care",
+    "low": "Supplementary protocol, enhances but not essential"
+  },
+  "updatePolicy": {
+    "checkFrequencyHours": 24,
+    "requireUserConsent": true,
+    "allowAutoUpdate": false,
+    "requireClinicalApproval": true,
+    "fallbackStrategy": "keep_previous",
+    "validationRules": {
+      "requireSignature": true,
+      "requireChecksum": true,
+      "maxSizeBytes": 1048576,
+      "allowedOrigins": ["https://schemas.healthbridge.org"]
+    }
+  },
+  "telemetry": {
+    "reportSchemaUsage": true,
+    "reportValidationErrors": true,
+    "reportCompletionTimes": true,
+    "anonymizePatientData": true
+  },
+  "signature": {
+    "algorithm": "RSASSA-PKCS1-v1_5",
+    "publicKeyUrl": "https://healthbridge.org/keys/schema-signing-public.pem",
+    "signature": "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDCFgT3yegC7gZ8...",
+    "signedData": "manifestVersion,appVersion,lastUpdated,schemas.id,schemas.version,schemas.sha256"
+  }
+}

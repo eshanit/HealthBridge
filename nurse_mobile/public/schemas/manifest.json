@@ -1,0 +1,20 @@
+{
+  "availableSchemas": [
+    {
+      "id": "peds_respiratory",
+      "latestVersion": "1.0.2",
+      "minAppVersion": "1.0.0",
+      "protocol": "WHO_IMCI",
+      "downloadUrl": "/schemas/peds_respiratory_v1.0.2.json",
+      "sha256": "pending"
+    },
+    {
+      "id": "peds_respiratory_treatment",
+      "latestVersion": "1.0.0",
+      "minAppVersion": "1.0.0",
+      "protocol": "WHO_IMCI",
+      "downloadUrl": "/schemas/peds_respiratory_treatment.json",
+      "sha256": "pending"
+    }
+  ]
+}

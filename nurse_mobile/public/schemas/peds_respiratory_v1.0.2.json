@@ -1,0 +1,429 @@
+{
+  "id": "peds_respiratory",
+  "version": "1.0.2",
+  "title": "Pediatric Respiratory Distress Assessment (IMCI)",
+  "description": "WHO IMCI-based assessment for pediatric respiratory illness",
+  "protocol": "WHO_IMCI",
+  "applicableAgeRange": {
+    "minMonths": 2,
+    "maxMonths": 59
+  },
+  "estimatedCompletionMinutes": 10,
+  "workflow": [
+    {
+      "id": "patient_info",
+      "name": "Patient Information",
+      "clinicalStep": 1,
+      "allowedTransitions": ["danger_signs"]
+    },
+    {
+      "id": "danger_signs",
+      "name": "Danger Signs Assessment",
+      "clinicalStep": 2,
+      "allowedTransitions": ["respiratory_danger", "patient_info"]
+    },
+    {
+      "id": "respiratory_danger",
+      "name": "Respiratory Danger Signs",
+      "clinicalStep": 3,
+      "allowedTransitions": ["vitals", "danger_signs"]
+    },
+    {
+      "id": "vitals",
+      "name": "Vital Signs",
+      "clinicalStep": 4,
+      "allowedTransitions": ["assessment", "respiratory_danger"]
+    },
+    {
+      "id": "assessment",
+      "name": "Respiratory Assessment",
+      "clinicalStep": 5,
+      "allowedTransitions": ["symptoms", "vitals"]
+    },
+    {
+      "id": "symptoms",
+      "name": "Other Symptoms",
+      "clinicalStep": 6,
+      "allowedTransitions": ["triage", "assessment"]
+    },
+    {
+      "id": "triage",
+      "name": "Triage & Classification",
+      "clinicalStep": 7,
+      "allowedTransitions": ["symptoms", "complete"]
+    },
+    {
+      "id": "complete",
+      "name": "Complete",
+      "clinicalStep": 8,
+      "allowedTransitions": []
+    }
+  ],
+  "sections": [
+    {
+      "id": "patient_info",
+      "title": "Patient Information",
+      "description": "Basic patient demographics",
+      "icon": "👶",
+      "fields": ["patient_id", "patient_name", "patient_age_months", "patient_weight_kg"]
+    },
+    {
+      "id": "danger_signs",
+      "title": "Danger Signs",
+      "description": "General danger signs indicate need for URGENT referral",
+      "icon": "⚠️",
+      "uiHint": "urgent",
+      "fields": [
+        "unable_to_drink",
+        "vomits_everything",
+        "convulsions",
+        "lethargic_unconscious"
+      ]
+    },
+    {
+      "id": "respiratory_danger",
+      "title": "Respiratory Danger Signs",
+      "description": "Severe respiratory distress indicators",
+      "icon": "🫁",
+      "uiHint": "urgent",
+      "fields": [
+        "stridor",
+        "wheezing_present",
+        "retractions",
+        "cyanosis"
+      ]
+    },
+    {
+      "id": "vitals",
+      "title": "Vital Signs",
+      "description": "Key measurements for respiratory assessment",
+      "fields": [
+        "resp_rate",
+        "heart_rate",
+        "oxygen_sat",
+        "temperature"
+      ]
+    },
+    {
+      "id": "assessment",
+      "title": "Respiratory Assessment",
+      "description": "Clinical findings",
+      "fields": [
+        "breath_sounds",
+        "work_of_breathing",
+        "skin_color",
+        "mental_status"
+      ]
+    },
+    {
+      "id": "symptoms",
+      "title": "Other Symptoms",
+      "description": "Associated symptoms",
+      "fields": [
+        "cough_present",
+        "cough_duration_days",
+        "fever_present",
+        "runny_nose"
+      ]
+    },
+    {
+      "id": "triage",
+      "title": "Triage & Classification",
+      "description": "Classification based on assessment findings",
+      "icon": "🎯",
+      "fields": ["triage_priority", "triage_classification", "triage_actions"]
+    }
+  ],
+  "fields": [
+    {
+      "id": "patient_id",
+      "type": "text",
+      "label": "Patient ID",
+      "required": false,
+      "placeholder": "Enter patient ID (optional)"
+    },
+    {
+      "id": "patient_name",
+      "type": "text",
+      "label": "Patient Name",
+      "required": true,
+      "placeholder": "Enter patient name"
+    },
+    {
+      "id": "patient_age_months",
+      "type": "number",
+      "label": "Age (months)",
+      "required": true,
+      "config": {
+        "min": 2,
+        "max": 59,
+        "step": 1
+      },
+      "clinicalNote": "IMCI applies to children 2-59 months"
+    },
+    {
+      "id": "patient_weight_kg",
+      "type": "number",
+      "label": "Weight (kg)",
+      "required": true,
+      "config": {
+        "min": 1,
+        "max": 99.9,
+        "step": 0.1
+      }
+    },
+    {
+      "id": "unable_to_drink",
+      "type": "checkbox",
+      "label": "Unable to drink or breastfeed",
+      "description": "Child cannot drink or is unable to swallow",
+      "clinicalNote": "GENERAL DANGER SIGN - Requires URGENT referral",
+      "uiHint": "urgent"
+    },
+    {
+      "id": "vomits_everything",
+      "type": "checkbox",
+      "label": "Vomits everything",
+      "description": "Child vomits everything eaten or drunk",
+      "clinicalNote": "GENERAL DANGER SIGN - Requires URGENT referral",
+      "uiHint": "urgent"
+    },
+    {
+      "id": "convulsions",
+      "type": "checkbox",
+      "label": "History of convulsions",
+      "description": "Child has had convulsions during this illness",
+      "clinicalNote": "GENERAL DANGER SIGN - Requires URGENT referral",
+      "uiHint": "urgent"
+    },
+    {
+      "id": "lethargic_unconscious",
+      "type": "checkbox",
+      "label": "Lethargic or unconscious",
+      "description": "Child is lethargic, unconscious, or floppy",
+      "clinicalNote": "GENERAL DANGER SIGN - Requires URGENT referral",
+      "uiHint": "urgent"
+    },
+    {
+      "id": "stridor",
+      "type": "checkbox",
+      "label": "Stridor in calm child",
+      "description": "Harsh vibrating sound when breathing quietly",
+      "clinicalNote": "SEVERE RESPIRATORY - Requires URGENT referral",
+      "uiHint": "urgent",
+      "visibleIf": {
+        "field": "patient_age_months",
+        "operator": "gte",
+        "value": 12
+      }
+    },
+    {
+      "id": "wheezing_present",
+      "type": "checkbox",
+      "label": "Wheezing present",
+      "description": "Whistling sound when breathing out"
+    },
+    {
+      "id": "retractions",
+      "type": "checkbox",
+      "label": "Chest indrawing",
+      "description": "Lower chest wall pulls inward when breathing in",
+      "clinicalNote": "Signs of moderate-to-severe respiratory distress"
+    },
+    {
+      "id": "cyanosis",
+      "type": "checkbox",
+      "label": "Cyanosis (bluish lips/nails)",
+      "clinicalNote": "Indicates severe hypoxemia - EMERGENCY",
+      "uiHint": "urgent"
+    },
+    {
+      "id": "resp_rate",
+      "type": "number",
+      "label": "Respiratory Rate (breaths/min)",
+      "required": true,
+      "helpText": "Count for 60 seconds using a timer",
+      "config": {
+        "min": 10,
+        "max": 120,
+        "step": 1,
+        "suffix": " /min"
+      },
+      "clinicalNote": "Fast breathing thresholds: 2-11mo ≥50, 12-59mo ≥40"
+    },
+    {
+      "id": "heart_rate",
+      "type": "number",
+      "label": "Heart Rate (bpm)",
+      "required": false,
+      "config": {
+        "min": 50,
+        "max": 200,
+        "step": 1,
+        "suffix": " bpm"
+      }
+    },
+    {
+      "id": "oxygen_sat",
+      "type": "number",
+      "label": "Oxygen Saturation (%)",
+      "required": false,
+      "config": {
+        "min": 70,
+        "max": 100,
+        "step": 1,
+        "suffix": "%"
+      }
+    },
+    {
+      "id": "temperature",
+      "type": "number",
+      "label": "Temperature (°C)",
+      "required": false,
+      "config": {
+        "min": 35,
+        "max": 42,
+        "step": 0.1,
+        "suffix": "°C"
+      }
+    },
+    {
+      "id": "breath_sounds",
+      "type": "select",
+      "label": "Breath Sounds",
+      "options": ["Normal", "Wheezing", "Crackles", "Decreased", "Absent"]
+    },
+    {
+      "id": "work_of_breathing",
+      "type": "select",
+      "label": "Work of Breathing",
+      "options": ["Normal", "Mild", "Moderate", "Severe"]
+    },
+    {
+      "id": "skin_color",
+      "type": "select",
+      "label": "Skin Color",
+      "options": ["Pink", "Pale", "Cyanotic", "Mottled"]
+    },
+    {
+      "id": "mental_status",
+      "type": "select",
+      "label": "Mental Status",
+      "options": ["Alert", "Lethargic", "Irritable", "Unresponsive"]
+    },
+    {
+      "id": "cough_present",
+      "type": "checkbox",
+      "label": "Cough present"
+    },
+    {
+      "id": "cough_duration_days",
+      "type": "number",
+      "label": "Cough duration (days)",
+      "config": {
+        "min": 0,
+        "max": 90,
+        "step": 1
+      },
+      "visibleIf": {
+        "field": "cough_present",
+        "operator": "eq",
+        "value": true
+      }
+    },
+    {
+      "id": "fever_present",
+      "type": "checkbox",
+      "label": "Fever present"
+    },
+    {
+      "id": "runny_nose",
+      "type": "checkbox",
+      "label": "Runny nose"
+    },
+    {
+      "id": "triage_priority",
+      "type": "calculated",
+      "label": "Triage Priority",
+      "clinicalNote": "Auto-calculated based on IMCI classification",
+      "config": {
+        "options": [
+          { "value": "red", "label": "RED - Urgent", "color": "#dc2626" },
+          { "value": "yellow", "label": "YELLOW - Priority", "color": "#f59e0b" },
+          { "value": "green", "label": "GREEN - Routine", "color": "#22c55e" }
+        ]
+      }
+    },
+    {
+      "id": "triage_classification",
+      "type": "calculated",
+      "label": "Classification",
+      "clinicalNote": "Based on assessment findings per WHO IMCI"
+    },
+    {
+      "id": "triage_actions",
+      "type": "calculated",
+      "label": "Recommended Actions",
+      "clinicalNote": "Follow IMCI treatment guidelines"
+    }
+  ],
+  "calculations": [
+    {
+      "id": "fast_breathing",
+      "name": "Fast Breathing Check",
+      "expression": {
+        "conditions": [
+          {
+            "if": "patient_age_months < 12 && resp_rate >= 50",
+            "then": true
+          },
+          {
+            "if": "patient_age_months >= 12 && resp_rate >= 40",
+            "then": true
+          },
+          {
+            "if": "resp_rate < 40",
+            "then": false
+          }
+        ]
+      },
+      "dependsOn": ["patient_age_months", "resp_rate"]
+    }
+  ],
+  "triageLogic": [
+    {
+      "id": "red_danger",
+      "name": "Danger Sign Present",
+      "conditions": ["unable_to_drink", "vomits_everything", "convulsions", "lethargic_unconscious"],
+      "priority": "red",
+      "actions": ["urgent_referral", "first_dose_antibiotics", "airway_management"]
+    },
+    {
+      "id": "red_distress",
+      "name": "Severe Respiratory Distress",
+      "conditions": ["cyanosis", "retractions"],
+      "priority": "red",
+      "actions": ["urgent_referral", "oxygen_if_available"]
+    },
+    {
+      "id": "yellow_pneumonia",
+      "name": "Pneumonia (Fast Breathing)",
+      "conditions": ["fast_breathing"],
+      "priority": "yellow",
+      "actions": ["oral_antibiotics", "home_care_advice", "follow_up_2_days"]
+    },
+    {
+      "id": "green_no_pneumonia",
+      "name": "No Pneumonia",
+      "conditions": ["!fast_breathing", "!cyanosis", "!retractions"],
+      "priority": "green",
+      "actions": ["home_care", "return_if_worse", "follow_up_5_days"]
+    }
+  ],
+  "metadata": {
+    "created": "2024-01-01T00:00:00Z",
+    "lastUpdated": "2024-06-15T00:00:00Z",
+    "whoReference": "WHO IMCI Chart Booklet 2014",
+    "whoVersion": "2014"
+  }
+}
