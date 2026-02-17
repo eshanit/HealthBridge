@@ -20,6 +20,93 @@ class PatientController extends Controller
     ) {}
 
     /**
+     * List all active patients with pagination, sorting, and filtering.
+     */
+    public function index(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'min:2'],
+            'triage' => ['nullable', 'string', 'in:red,yellow,green,unknown'],
+            'status' => ['nullable', 'string'],
+            'sort_by' => ['nullable', 'string', 'in:last_visit_at,created_at,full_name'],
+            'sort_dir' => ['nullable', 'string', 'in:asc,desc'],
+            'per_page' => ['nullable', 'integer', 'min:10', 'max:100'],
+        ]);
+
+        $query = Patient::query()
+            ->with(['latestSession'])
+            ->active();
+
+        // Search filter
+        if (!empty($validated['search'])) {
+            $search = $validated['search'];
+            $query->where(function ($q) use ($search) {
+                $q->where('first_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('cpt', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%");
+            });
+        }
+
+        // Triage filter (via latest session relationship)
+        if (!empty($validated['triage'])) {
+            $query->whereHas('latestSession', function ($q) use ($validated) {
+                $q->where('triage_priority', $validated['triage']);
+            });
+        }
+
+        // Status filter (via latest session relationship)
+        if (!empty($validated['status'])) {
+            $query->whereHas('latestSession', function ($q) use ($validated) {
+                $q->where('workflow_state', $validated['status']);
+            });
+        }
+
+        // Sorting
+        $sortBy = $validated['sort_by'] ?? 'last_visit_at';
+        $sortDir = $validated['sort_dir'] ?? 'desc';
+        $query->orderBy($sortBy, $sortDir);
+
+        // Pagination
+        $perPage = $validated['per_page'] ?? 20;
+        $patients = $query->paginate($perPage);
+
+        return response()->json([
+            'success' => true,
+            'data' => $patients->map(fn ($patient) => $this->formatPatientSummary($patient)),
+            'pagination' => [
+                'current_page' => $patients->currentPage(),
+                'last_page' => $patients->lastPage(),
+                'per_page' => $patients->perPage(),
+                'total' => $patients->total(),
+                'from' => $patients->firstItem(),
+                'to' => $patients->lastItem(),
+            ],
+        ]);
+    }
+
+    /**
+     * Format patient for summary list view.
+     */
+    protected function formatPatientSummary(Patient $patient): array
+    {
+        $latestSession = $patient->latestSession;
+
+        return [
+            'couch_id' => $patient->couch_id,
+            'cpt' => $patient->cpt,
+            'full_name' => $patient->full_name,
+            'age' => $patient->age,
+            'gender' => $patient->gender,
+            'triage_priority' => $latestSession?->triage_priority,
+            'status' => $latestSession?->workflow_state,
+            'waiting_minutes' => $latestSession?->waiting_minutes,
+            'danger_signs' => $latestSession?->danger_signs ?? [],
+            'last_updated' => $patient->last_visit_at?->toIso8601String(),
+        ];
+    }
+
+    /**
      * Show the new patient registration form.
      */
     public function create(): Response

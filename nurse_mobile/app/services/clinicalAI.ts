@@ -634,6 +634,13 @@ export async function streamClinicalAI(
       for (const line of lines) {
         if (line.startsWith('data: ')) {
           const data = line.slice(6);
+          
+          // Skip empty data lines (keep-alive or comments)
+          if (!data || data.trim() === '') {
+            console.log(`[AI Stream] 📋 Skipping empty SSE data line`);
+            continue;
+          }
+          
           try {
             const event = JSON.parse(data);
             
@@ -651,6 +658,25 @@ export async function streamClinicalAI(
                 const summaryMatch = fullResponse.match(/SUMMARY:\s*(.+)$/m);
                 const extractedSummary = summaryMatch ? summaryMatch[1]?.trim() : undefined;
                 
+                // TRUNCATION DETECTION: Check if response was cut off
+                const wasTruncated = event.payload?.wasTruncated === true;
+                const truncationIndicators = [
+                  fullResponse.endsWith('...'),
+                  fullResponse.endsWith('..'),
+                  !fullResponse.match(/[.!?]$/), // No sentence-ending punctuation
+                  fullResponse.length > 100 && !fullResponse.includes('SUMMARY:') // Long response without summary
+                ];
+                const possiblyTruncated = wasTruncated || truncationIndicators.filter(Boolean).length >= 2;
+                
+                if (wasTruncated || possiblyTruncated) {
+                  console.warn(`[AI Stream] ⚠️ Response truncation detected:`);
+                  console.warn(`[AI Stream]    - wasTruncated flag: ${wasTruncated}`);
+                  console.warn(`[AI Stream]    - Ends with ellipsis: ${fullResponse.endsWith('...')}`);
+                  console.warn(`[AI Stream]    - No sentence end: ${!fullResponse.match(/[.!?]$/)}`);
+                  console.warn(`[AI Stream]    - Missing SUMMARY: ${fullResponse.length > 100 && !fullResponse.includes('SUMMARY:')}`);
+                  console.warn(`[AI Stream] 💡 TIP: Add word limit instruction to prompt (e.g., "Keep response under N words")`);
+                }
+                
                 // Phase 1: Extract structured response from server
                 const structured: StructuredResponse | undefined = event.payload?.structured ? {
                   explanation: event.payload.structured.explanation || event.payload.explanation || fullResponse,
@@ -665,7 +691,7 @@ export async function streamClinicalAI(
                 } : undefined;
                 
                 if (structured) {
-                  console.log(`[AI Stream] 📊 Structured response received: inconsistencies=${structured.inconsistencies.length}, teachingNotes=${structured.teachingNotes.length}, nextSteps=${structured.nextSteps.length}, confidence=${structured.confidence.toFixed(2)}`);
+                  console.log(`[AI Stream] 📊 Structured response received: inconsistencies=${structured.inconsistencies?.length || 0}, teachingNotes=${structured.teachingNotes?.length || 0}, nextSteps=${structured.nextSteps?.length || 0}, confidence=${structured.confidence?.toFixed(2) || 'N/A'}`);
                 }
                 
                 auditLog.push({
@@ -678,7 +704,7 @@ export async function streamClinicalAI(
                   duration
                 });
                 
-                console.log(`[AI Stream] ✅ Completed in ${duration}ms, chunks: ${chunkCount}`);
+                console.log(`[AI Stream] ✅ Completed in ${duration}ms, chunks: ${chunkCount}, truncated: ${possiblyTruncated}`);
                 callbacks.onComplete(fullResponse, duration, extractedSummary, structured);
                 return { requestId, cancel, mode: 'stream' };
                 
@@ -687,9 +713,28 @@ export async function streamClinicalAI(
                 console.error(`[AI Stream] ❌ Error: ${errorMsg}`);
                 callbacks.onError(errorMsg, event.payload?.recoverable ?? true);
                 throw new Error(errorMsg);
+                
+              case 'connection_established':
+              case 'progress':
+              case 'heartbeat':
+                // Informational events - just log and continue
+                console.log(`[AI Stream] 📡 ${event.type}: ${event.payload?.message || 'status update'}`);
+                break;
+                
+              default:
+                console.log(`[AI Stream] 📋 Unknown event type: ${event.type}`);
             }
           } catch (err) {
-            console.warn(`[AI Stream] ⚠️ Failed to parse SSE data`);
+            // Check if this is a JSON parse error or a processing error
+            if (err instanceof SyntaxError) {
+              // JSON parse error - log the problematic data
+              const dataPreview = data.length > 200 ? data.slice(0, 200) + '...' : data;
+              console.warn(`[AI Stream] ⚠️ Failed to parse SSE data as JSON`);
+              console.warn(`[AI Stream] 📄 Problematic data: "${dataPreview}"`);
+            } else {
+              // Processing error - re-throw to be caught by outer try/catch
+              throw err;
+            }
           }
         }
       }
@@ -706,6 +751,11 @@ export async function streamClinicalAI(
 
 /**
  * Fallback simulated streaming when SSE is unavailable
+ * 
+ * CRITICAL: This function handles cases where:
+ * 1. SSE streaming fails mid-stream
+ * 2. API returns undefined/empty response
+ * 3. AI model truncates output due to missing word limit
  */
 async function simulateStreaming(
   requestId: string,
@@ -741,36 +791,125 @@ async function simulateStreaming(
     });
 
     if (!response.ok) {
-      throw new Error(`AI service error: ${await response.text()}`);
+      const errorText = await response.text();
+      console.error(`[AI Fallback] ❌ API error: ${response.status} ${errorText.slice(0, 200)}`);
+      throw new Error(`AI service error: ${response.status}`);
     }
 
     const data = await response.json();
-    const text = data.answer as string;
     
-    const chunks = text.split(/(?= )/).slice(0, 10);
-    for (const chunk of chunks) {
+    // DEFENSIVE NULL CHECK: Handle undefined/empty response from API
+    // The API may return: { answer: undefined } or { explanation: "..." } or {}
+    const text = (data.answer as string) || 
+                 (data.explanation as string) || 
+                 (data.response as string) || '';
+    
+    // Log response structure for debugging truncation issues
+    console.log(`[AI Fallback] 📊 API response structure:`, {
+      hasAnswer: !!data.answer,
+      hasExplanation: !!data.explanation,
+      hasResponse: !!data.response,
+      textLength: text.length,
+      safetyFlags: data.safetyFlags || []
+    });
+    
+    // Check for empty or undefined text - indicates API issue or truncation
+    if (!text || text.trim().length === 0) {
+      console.error(`[AI Fallback] ⚠️ Empty response received - possible truncation or API error`);
+      console.error(`[AI Fallback] 📋 Full API response:`, JSON.stringify(data).slice(0, 500));
+      
+      // Check for truncation indicators
+      const wasTruncated = data.safetyFlags?.includes('OUTPUT_BLOCKED') || 
+                          data.safetyFlags?.includes('AI_UNAVAILABLE') ||
+                          data.wasTruncated === true;
+      
+      if (wasTruncated) {
+        console.warn(`[AI Fallback] 🔪 Response was truncated - AI model may have hit token limit`);
+      }
+      
+      // Provide meaningful fallback message
+      const fallbackMessage = wasTruncated 
+        ? 'AI response was truncated. The model may have reached its token limit. Consider adding word limit instructions to the prompt.'
+        : 'AI service returned an empty response. Please try again or check the AI service status.';
+      
+      callbacks.onError(fallbackMessage, true);
+      
+      // Return gracefully instead of throwing
+      return { requestId, cancel, mode: 'fallback' };
+    }
+    
+    // Safe to split now - text is guaranteed to be a non-empty string
+    const chunks = text.split(/(?= )/).filter(chunk => chunk.length > 0);
+    const totalChunks = Math.min(chunks.length, 100); // Limit chunks for safety
+    
+    for (let i = 0; i < totalChunks; i++) {
       if (isCancelled) break;
+      
+      const chunk = chunks[i];
+      if (!chunk) continue; // Skip empty chunks
       
       await new Promise(resolve => setTimeout(resolve, 100));
       fullResponse += chunk;
       chunkCount++;
       
       callbacks.onChunk(chunk);
-      callbacks.onProgress(chunkCount, chunks.length);
+      callbacks.onProgress(chunkCount, totalChunks);
     }
 
     const duration = Date.now() - startTime;
-    console.log(`[AI Fallback] ✅ Completed in ${duration}ms`);
     
-    callbacks.onComplete(fullResponse, duration);
+    // Detect potential truncation in the response
+    const truncationIndicators = [
+      text.endsWith('...'),
+      text.endsWith('..'),
+      !text.match(/[.!?]$/), // No sentence-ending punctuation
+      text.split(' ').length < 50 && !text.includes('SUMMARY:') // Short response without summary
+    ];
+    const possiblyTruncated = truncationIndicators.filter(Boolean).length >= 2;
+    
+    if (possiblyTruncated) {
+      console.warn(`[AI Fallback] ⚠️ Response may be truncated - missing proper ending`);
+    }
+    
+    console.log(`[AI Fallback] ✅ Completed in ${duration}ms, chunks: ${chunkCount}, chars: ${fullResponse.length}`);
+    
+    // Extract summary if present
+    const summaryMatch = fullResponse.match(/SUMMARY:\s*(.+)$/m);
+    const extractedSummary = summaryMatch ? summaryMatch[1]?.trim() : undefined;
+    
+    callbacks.onComplete(fullResponse, duration, extractedSummary);
+    
+    // Update audit log
+    auditLog.push({
+      requestId,
+      useCase,
+      mode: 'fallback',
+      status: 'complete',
+      timestamp: new Date().toISOString(),
+      tokens: chunkCount,
+      duration
+    });
     
     return { requestId, cancel, mode: 'fallback' };
     
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error(`[AI Fallback] ❌ Error: ${errorMessage}`);
+    
+    // Log to audit
+    auditLog.push({
+      requestId,
+      useCase,
+      mode: 'fallback',
+      status: 'error',
+      timestamp: new Date().toISOString(),
+      error: errorMessage
+    });
+    
     callbacks.onError(errorMessage, false);
-    throw error;
+    
+    // Don't re-throw - allow graceful degradation
+    return { requestId, cancel, mode: 'fallback' };
   }
 }
 

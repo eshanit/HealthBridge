@@ -18,7 +18,8 @@ class CouchSyncWorker extends Command
     protected $signature = 'couchdb:sync 
                             {--daemon : Run as a continuous daemon} 
                             {--poll=4 : Polling interval in seconds}
-                            {--batch=100 : Maximum batch size per poll}';
+                            {--batch=100 : Maximum batch size per poll}
+                            {--reset : Reset sequence and process all documents from beginning}';
 
     /**
      * The console command description.
@@ -49,6 +50,11 @@ class CouchSyncWorker extends Command
         }
 
         $this->info('CouchDB connection established.');
+
+        // Handle --reset option
+        if ($this->option('reset')) {
+            $this->resetSequence();
+        }
 
         if ($this->option('daemon')) {
             $this->runContinuous();

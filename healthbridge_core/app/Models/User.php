@@ -61,6 +61,22 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the clinical sessions created by this user.
+     */
+    public function createdSessions()
+    {
+        return $this->hasMany(ClinicalSession::class, 'created_by_user_id');
+    }
+
+    /**
+     * Get the clinical forms created by this user.
+     */
+    public function createdForms()
+    {
+        return $this->hasMany(ClinicalForm::class, 'created_by_user_id');
+    }
+
+    /**
      * Get the referrals made by this user.
      */
     public function referredBy()

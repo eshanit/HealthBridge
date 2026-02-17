@@ -68,6 +68,19 @@ class AppServiceProvider extends ServiceProvider
      */
     protected function configureRateLimiting(): void
     {
+        // API rate limiter (for CouchDB proxy and general API)
+        RateLimiter::for('api', function (Request $request) {
+            return Limit::perMinute(60)
+                ->by($request->user()?->id ?: $request->ip())
+                ->response(function () {
+                    return response()->json([
+                        'success' => false,
+                        'error' => 'Rate limit exceeded',
+                        'message' => 'Too many requests. Please wait before trying again.',
+                    ], 429);
+                });
+        });
+
         // AI Gateway rate limiter
         RateLimiter::for('ai', function (Request $request) {
             $limit = config('ai_policy.rate_limit', 30);

@@ -93,69 +93,183 @@ State transitions must be **logged and auditable**.
 
 #### Key Entities
 
-* `patients`
-* `encounters`
-* `triage_records`
-* `referrals`
-* `users`
-* `roles`
-* `ai_audit_logs`
+| Table | Description |
+|-------|-------------|
+| `patients` | Patient demographics and tracking |
+| `clinical_sessions` | Visit/encounter tracking (formerly "encounters") |
+| `clinical_forms` | Form data attached to sessions |
+| `referrals` | Referral tracking between providers |
+| `state_transitions` | Audit log for workflow state changes |
+| `case_comments` | Comments on clinical cases |
+| `users` | User accounts |
+| `roles` | Role definitions (via spatie/laravel-permission) |
+| `permissions` | Permission definitions |
+| `ai_requests` | AI audit logging (formerly "ai_audit_logs") |
+| `prompt_versions` | AI prompt version management |
+
+> **Note:** Triage data is integrated directly into `clinical_sessions` rather than a separate `triage_records` table.
 
 #### Referral Tracking
 
-| Field                 | Purpose                        |
-| --------------------- | ------------------------------ |
-| `referral_id`         | Unique ID                      |
-| `source_user_id`      | Who referred                   |
-| `source_role`         | Nurse, Specialist, Radiologist |
-| `reason`              | Clinical escalation            |
-| `urgency`             | Normal / High                  |
-| `status`              | Pending, Accepted, Closed      |
-| `linked_encounter_id` | Reference to patient visit     |
+| Field | Type | Purpose |
+|-------|------|---------|
+| `id` | bigint | Auto-increment primary key |
+| `referral_uuid` | string(50) | Unique identifier |
+| `session_couch_id` | string | Reference to clinical session |
+| `referring_user_id` | foreignId | User who created the referral |
+| `assigned_to_user_id` | foreignId | User assigned to handle referral |
+| `assigned_to_role` | string(50) | Role assigned (doctor, radiologist, etc.) |
+| `status` | enum | pending, accepted, rejected, completed, cancelled |
+| `priority` | enum | red, yellow, green |
+| `specialty` | string(50) | Required specialty type |
+| `reason` | text | Clinical escalation reason |
+| `clinical_notes` | text | Additional clinical context |
+| `rejection_reason` | text | Reason if rejected |
+| `assigned_at` | timestamp | When assignment was made |
+| `accepted_at` | timestamp | When referral was accepted |
+| `completed_at` | timestamp | When referral was completed |
 
 ---
 
 ### 3. API Structure
 
-| Endpoint                      | Purpose              |
-| ----------------------------- | -------------------- |
-| `GET /gp/referrals`           | GP referral queue    |
-| `POST /patients`              | Register new patient |
-| `POST /encounters`            | Start new visit      |
-| `POST /triage`                | Save triage          |
-| `POST /referrals/{id}/accept` | Claim case           |
-| `POST /ai/explain`            | MedGemma guidance    |
-| `POST /encounters/{id}/close` | End visit            |
+All GP endpoints are prefixed with `/gp` and require authentication with `doctor` or `admin` role.
+
+#### Dashboard & Queue
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/gp/dashboard` | Dashboard statistics and overview |
+| GET | `/gp/referrals` | GP referral queue (paginated) |
+| GET | `/gp/referrals/{couchId}` | Single referral details |
+| POST | `/gp/referrals/{couchId}/accept` | Accept a referral |
+| POST | `/gp/referrals/{couchId}/reject` | Reject a referral |
+| GET | `/gp/in-review` | Sessions currently in GP review |
+| GET | `/gp/under-treatment` | Sessions under treatment |
+
+#### Patient Management
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/gp/patients/new` | New patient registration form |
+| POST | `/gp/patients` | Register new patient |
+| GET | `/gp/patients/search` | Search patients by name, CPT, or phone |
+| GET | `/gp/patients/{identifier}` | Get patient details |
+
+#### Clinical Session Management
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/gp/sessions/{couchId}` | Get session details |
+| POST | `/gp/sessions/{couchId}/transition` | Generic state transition |
+| POST | `/gp/sessions/{couchId}/start-treatment` | Start treatment (IN_GP_REVIEW → UNDER_TREATMENT) |
+| POST | `/gp/sessions/{couchId}/request-specialist` | Request specialist referral |
+| POST | `/gp/sessions/{couchId}/close` | Close session |
+| POST | `/gp/sessions/{couchId}/comments` | Add case comment |
+| GET | `/gp/sessions/{couchId}/comments` | Get case comments |
+
+#### Workflow Configuration
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/gp/workflow/config` | Get workflow state machine config for frontend |
+
+#### AI Integration
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| POST | `/api/ai/medgemma` | AI completion request (requires `AiGuard` middleware) |
+| GET | `/api/ai/health` | AI service health check |
+| GET | `/api/ai/tasks` | Get available AI tasks for current user |
+
+> **Note:** All endpoints use `couchId` as the identifier parameter, not numeric IDs. This ensures consistency with the CouchDB synchronization layer.
 
 ---
 
 ### 4. Role-Based Access Control
 
-| Role       | Permissions                              |
-| ---------- | ---------------------------------------- |
-| GP         | Read referrals, edit encounters, view AI |
-| Nurse      | Create triage, refer cases               |
-| Specialist | Add diagnostics, refer to GP             |
-| Admin      | View all logs, manage users              |
+Roles are managed via `spatie/laravel-permission` package.
+
+#### Available Roles
+
+| Role | Description |
+|------|-------------|
+| `nurse` | Frontline nurse for triage and basic care |
+| `senior-nurse` | Senior nurse with additional permissions |
+| `doctor` | General Practitioner (GP) - primary dashboard user |
+| `radiologist` | Imaging specialist |
+| `dermatologist` | Skin condition specialist |
+| `manager` | Dashboard and reporting access |
+| `admin` | System administrator |
+
+#### Role Permissions
+
+| Role | Permissions |
+|------|-------------|
+| `doctor` (GP) | `use-ai`, `ai-explain-triage`, `ai-specialist-review`, `view-cases`, `view-all-cases`, `create-referrals`, `accept-referrals`, `add-case-comments` |
+| `nurse` | `use-ai`, `ai-explain-triage`, `ai-caregiver-summary`, `view-own-cases`, `create-referrals`, `add-case-comments` |
+| `senior-nurse` | `use-ai`, `ai-explain-triage`, `ai-caregiver-summary`, `view-cases`, `view-own-cases`, `create-referrals`, `accept-referrals`, `add-case-comments` |
+| `radiologist` | `use-ai`, `ai-imaging-interpretation`, `view-cases`, `view-all-cases`, `accept-referrals`, `add-case-comments` |
+| `dermatologist` | `use-ai`, `view-cases`, `view-all-cases`, `accept-referrals`, `add-case-comments` |
+| `manager` | `view-dashboards`, `view-cases`, `view-all-cases` |
+| `admin` | `use-ai`, `view-dashboards`, `view-ai-console`, `manage-prompts`, `manage-users`, `manage-roles`, `view-cases`, `view-all-cases` |
+
+> **Note:** The role "GP" in documentation refers to the `doctor` role in the system.
 
 ---
 
 ### 5. AI Governance Layer
 
-Every AI call must log:
+Every AI call is logged in the `ai_requests` table with the following fields:
 
-* Model version
-* Prompt hash
-* Input schema
-* Output text
-* User ID
-* Timestamp
+| Field | Type | Purpose |
+|-------|------|---------|
+| `request_uuid` | string | Unique request identifier |
+| `user_id` | foreignId | User who made the request |
+| `session_couch_id` | string | Related clinical session |
+| `form_couch_id` | string | Related form (if applicable) |
+| `form_section_id` | string | Form section (if applicable) |
+| `form_field_id` | string | Form field (if applicable) |
+| `form_schema_id` | string | Form schema reference |
+| `task` | string | AI task type (e.g., `specialist_review`) |
+| `use_case` | string | Use case category |
+| `prompt_version` | string | Version of prompt template used |
+| `prompt` | text | Full prompt sent to AI |
+| `response` | text | AI response text |
+| `model` | string | Model used (e.g., `gemma3:4b`) |
+| `latency_ms` | integer | Response time in milliseconds |
+| `was_overridden` | boolean | Whether output was modified/filtered |
+| `risk_flags` | json | Any risk flags identified |
+| `requested_at` | timestamp | When request was made |
+
+#### AI Tasks Available for Doctor Role
+
+| Task | Description | Max Tokens |
+|------|-------------|------------|
+| `specialist_review` | Generate specialist review summary | 1000 |
+| `red_case_analysis` | Analyze RED case for specialist review | 800 |
+| `clinical_summary` | Generate clinical summary | 600 |
+| `handoff_report` | Generate SBAR-style handoff report | 700 |
+| `explain_triage` | Explain triage classification | 500 |
+
+#### Blocked Phrases
+
+The following phrases are automatically blocked from AI output:
+
+- `diagnose`, `prescribe`, `dosage`
+- `replace doctor`, `definitive treatment`
+- `discharge patient`, `you should`, `you must`
+- `I recommend`, `the treatment is`
+- `take this medication`, `stop taking`
+
+#### AI Restrictions
 
 No AI output may:
 
-* Change triage
-* Prescribe
-* Override human judgment
+* Change triage classification directly
+* Prescribe medications
+* Override human clinical judgment
+* Make definitive treatment decisions
 
 ---
 

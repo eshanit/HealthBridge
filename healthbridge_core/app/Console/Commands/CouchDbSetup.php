@@ -175,25 +175,18 @@ class CouchDbSetup extends Command
 
     /**
      * Create validation document.
+     * 
+     * This validation function enforces:
+     * - Document type requirements
+     * - User ownership for document modifications
+     * - Required fields for clinical documents
+     * - Role-based access control
      */
     protected function createValidationDocument(): void
     {
         $validationDoc = [
             '_id' => '_design/validation',
-            'validate_doc_update' => "function(newDoc, oldDoc, userCtx) { 
-                // Allow admins to do anything
-                if (userCtx.roles.indexOf('_admin') !== -1) { return; }
-                
-                // Require type field
-                if (!newDoc.type) {
-                    throw({forbidden: 'Document must have a type field'});
-                }
-                
-                // Require created_at field
-                if (!newDoc.created_at) {
-                    throw({forbidden: 'Document must have a created_at field'});
-                }
-            }"
+            'validate_doc_update' => $this->getValidationFunction()
         ];
 
         // Check if validation doc exists
@@ -208,6 +201,177 @@ class CouchDbSetup extends Command
         } catch (\Exception $e) {
             $this->error('Failed to create validation document: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Get the validation function JavaScript code.
+     */
+    protected function getValidationFunction(): string
+    {
+        return <<<'JS'
+function(newDoc, oldDoc, userCtx) {
+  // ============================================
+  // ADMIN BYPASS
+  // ============================================
+  
+  // Allow server admins to do anything
+  if (userCtx.roles.indexOf('_admin') !== -1) {
+    return;
+  }
+  
+  // Allow healthbridge_admin role to do anything
+  if (userCtx.roles.indexOf('healthbridge_admin') !== -1) {
+    return;
+  }
+  
+  // ============================================
+  // AUTHENTICATION CHECK
+  // ============================================
+  
+  // Require authentication for all writes
+  if (!userCtx.name) {
+    throw({forbidden: 'Authentication required. Please log in.'});
+  }
+  
+  // ============================================
+  // DOCUMENT TYPE VALIDATION
+  // ============================================
+  
+  // Valid document types
+  var validTypes = [
+    'clinicalPatient',
+    'clinicalSession', 
+    'clinicalForm',
+    'aiLog',
+    'ruleVersion',
+    'config'
+  ];
+  
+  if (newDoc.type && validTypes.indexOf(newDoc.type) === -1) {
+    throw({forbidden: 'Invalid document type: ' + newDoc.type});
+  }
+  
+  // Require type field for new documents
+  if (!newDoc.type) {
+    throw({forbidden: 'Document must have a type field'});
+  }
+  
+  // ============================================
+  // REQUIRED FIELDS
+  // ============================================
+  
+  // All documents must have created_at
+  if (!newDoc.created_at && !oldDoc) {
+    throw({forbidden: 'New documents must have a created_at field'});
+  }
+  
+  // All documents must have created_by for new documents
+  if (!newDoc.created_by && !oldDoc) {
+    throw({forbidden: 'New documents must have a created_by field'});
+  }
+  
+  // ============================================
+  // OWNERSHIP VALIDATION
+  // ============================================
+  
+  // For updates, check ownership
+  if (oldDoc && oldDoc.created_by) {
+    var isOwner = (oldDoc.created_by === userCtx.name);
+    var isDoctor = (userCtx.roles.indexOf('doctor') !== -1);
+    var isSeniorNurse = (userCtx.roles.indexOf('senior-nurse') !== -1);
+    var isAdmin = (userCtx.roles.indexOf('admin') !== -1);
+    
+    // Only owner, doctors, senior nurses, or admins can modify
+    if (!isOwner && !isDoctor && !isSeniorNurse && !isAdmin) {
+      throw({
+        forbidden: 'You can only modify documents you created. ' +
+                   'This document was created by ' + oldDoc.created_by
+      });
+    }
+  }
+  
+  // ============================================
+  // DOCUMENT-SPECIFIC VALIDATION
+  // ============================================
+  
+  // Clinical Patient validation
+  if (newDoc.type === 'clinicalPatient') {
+    if (!newDoc.patient || !newDoc.patient.cpt) {
+      throw({forbidden: 'Patient documents must have a patient.cpt field'});
+    }
+  }
+  
+  // Clinical Session validation
+  if (newDoc.type === 'clinicalSession') {
+    if (!newDoc.patientCpt && !newDoc.patient_cpt) {
+      throw({forbidden: 'Clinical session must reference a patient'});
+    }
+    
+    // Validate triage priority
+    var validTriage = ['red', 'yellow', 'green', 'unknown'];
+    if (newDoc.triage && validTriage.indexOf(newDoc.triage) === -1) {
+      throw({forbidden: 'Invalid triage priority: ' + newDoc.triage});
+    }
+    
+    // Validate status
+    var validStatus = ['open', 'completed', 'archived', 'referred', 'cancelled'];
+    if (newDoc.status && validStatus.indexOf(newDoc.status) === -1) {
+      throw({forbidden: 'Invalid session status: ' + newDoc.status});
+    }
+  }
+  
+  // Clinical Form validation
+  if (newDoc.type === 'clinicalForm') {
+    if (!newDoc.sessionId && !newDoc.session_couch_id) {
+      throw({forbidden: 'Clinical form must reference a session'});
+    }
+    if (!newDoc.schemaId && !newDoc.schema_id) {
+      throw({forbidden: 'Clinical form must have a schema ID'});
+    }
+  }
+  
+  // AI Log validation
+  if (newDoc.type === 'aiLog') {
+    if (!newDoc.task) {
+      throw({forbidden: 'AI log must have a task field'});
+    }
+  }
+  
+  // ============================================
+  // DELETION PROTECTION
+  // ============================================
+  
+  // Prevent deletion of clinical documents by non-admins
+  if (newDoc._deleted) {
+    var isClinicalDoc = ['clinicalPatient', 'clinicalSession', 'clinicalForm']
+                        .indexOf(oldDoc.type) !== -1;
+    
+    if (isClinicalDoc) {
+      var isAdmin = (userCtx.roles.indexOf('admin') !== -1);
+      if (!isAdmin) {
+        throw({
+          forbidden: 'Clinical documents cannot be deleted. ' +
+                     'Use status changes instead. Contact admin for assistance.'
+        });
+      }
+    }
+  }
+  
+  // ============================================
+  // AUDIT TRAIL
+  // ============================================
+  
+  // Ensure updated_by is set for updates
+  if (oldDoc && !newDoc._deleted) {
+    if (!newDoc.updated_by) {
+      throw({forbidden: 'Document updates must have an updated_by field'});
+    }
+    if (!newDoc.updated_at) {
+      throw({forbidden: 'Document updates must have an updated_at field'});
+    }
+  }
+}
+JS;
     }
 
     /**

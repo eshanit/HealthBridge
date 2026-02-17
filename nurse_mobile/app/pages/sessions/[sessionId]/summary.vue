@@ -395,17 +395,41 @@ async function confirmDischarge() {
       } as any);
     }
     
-    // Complete the session
-    await completeSession(sessionId.value, 'completed');
-    
-    toastComposable.add({ 
-      title: 'Discharge Confirmed', 
-      description: 'Patient has been successfully discharged',
-      color: 'success' 
+    // Complete the session with discharge-triggered sync
+    const result = await completeSession(sessionId.value, 'completed', {
+      syncOnComplete: true,
+      syncTimeout: 30000
     });
     
-    // Navigate to dashboard
-    navigateTo('/dashboard');
+    if (result.success) {
+      // Check if sync was successful
+      if (result.syncResult?.success) {
+        toastComposable.add({ 
+          title: 'Discharge Confirmed', 
+          description: `Patient has been successfully discharged. ${result.syncResult.documentsSynced} records synced to server.`,
+          color: 'success' 
+        });
+      } else if (result.syncResult && !result.syncResult.success) {
+        // Discharge succeeded but sync had issues
+        toastComposable.add({ 
+          title: 'Discharge Confirmed', 
+          description: 'Patient discharged. Some records may sync later when online.',
+          color: 'warning' 
+        });
+        console.warn('[Summary] Sync completed with errors:', result.syncResult.errors);
+      } else {
+        toastComposable.add({ 
+          title: 'Discharge Confirmed', 
+          description: 'Patient has been successfully discharged',
+          color: 'success' 
+        });
+      }
+      
+      // Navigate to dashboard
+      navigateTo('/dashboard');
+    } else {
+      throw new Error(result.error || 'Failed to complete session');
+    }
   } catch (err) {
     console.error('[Summary] Failed to complete discharge:', err);
     toastComposable.add({ 

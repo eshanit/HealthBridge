@@ -9,6 +9,7 @@ import { sanitizeCPTInput, validateCPTFormat, validateShortCPTFormat } from '~/s
 import { isValidCpt } from '~/services/cptService';
 import type { ClinicalPatient } from '~/types/patient';
 import PatientSummaryCard from '~/components/patient/PatientSummaryCard.vue';
+import ServerLoginModal from '~/components/ServerLoginModal.vue';
 
 const auth = useAuth();
 const securityStore = useSecurityStore();
@@ -50,6 +51,32 @@ function getHeaderBadgeIcon(iconName: string) {
 // ----- Auth & Security -----
 const isAuthenticated = computed(() => auth.isAuthenticated.value);
 const nurseName = computed(() => auth.nurseName.value || 'Nurse');
+
+// ----- Sync Status -----
+const syncStatus = computed(() => auth.syncStatus.value);
+const isServerAuthenticated = computed(() => auth.isServerAuthenticated.value);
+
+// Sync status tooltip
+const getSyncStatusTooltip = computed(() => {
+  if (!isServerAuthenticated.value) {
+    return 'Click to connect to server';
+  }
+  if (syncStatus.value.status === 'offline') {
+    return 'Click to reconnect to server';
+  }
+  if (syncStatus.value.status === 'error') {
+    return 'Click to re-authenticate';
+  }
+  return '';
+});
+
+// Handle click on sync status badge
+function handleSyncStatusClick() {
+  if (!isServerAuthenticated.value || syncStatus.value.status === 'offline' || syncStatus.value.status === 'error') {
+    // Show the server login modal
+    auth.showServerLogin.value = true;
+  }
+}
 
 // ----- State Machine UI Bindings -----
 const currentState = computed(() => dashboardStore.state);
@@ -448,6 +475,55 @@ function getStateColor(state: DashboardState): string {
         <p class="text-gray-400 text-sm">Patient-First Clinical Workflow</p>
       </div>
       
+      <!-- Sync Status Badge -->
+      <div class="flex items-center gap-3">
+        <div 
+          class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-colors"
+          :class="{
+            'bg-green-900/50 text-green-400': syncStatus.status === 'synced',
+            'bg-blue-900/50 text-blue-400': syncStatus.status === 'syncing',
+            'bg-orange-900/50 text-orange-400 hover:bg-orange-800/50': syncStatus.status === 'offline',
+            'bg-red-900/50 text-red-400 hover:bg-red-800/50': syncStatus.status === 'error'
+          }"
+          @click="handleSyncStatusClick"
+          :title="getSyncStatusTooltip"
+        >
+          <div 
+            class="w-2 h-2 rounded-full"
+            :class="{
+              'bg-green-400': syncStatus.status === 'synced',
+              'bg-blue-400 animate-pulse': syncStatus.status === 'syncing',
+              'bg-orange-400': syncStatus.status === 'offline',
+              'bg-red-400': syncStatus.status === 'error'
+            }"
+          ></div>
+          <span v-if="!isServerAuthenticated">Not Connected</span>
+          <span v-else-if="syncStatus.status === 'synced'">Synced</span>
+          <span v-else-if="syncStatus.status === 'syncing'">Syncing...</span>
+          <span v-else-if="syncStatus.status === 'offline'">Offline</span>
+          <span v-else-if="syncStatus.status === 'error'">Sync Error</span>
+          <svg 
+            v-if="syncStatus.status === 'offline' || syncStatus.status === 'error' || !isServerAuthenticated"
+            xmlns="http://www.w3.org/2000/svg" 
+            class="h-3 w-3 ml-1" 
+            fill="none" 
+            viewBox="0 0 24 24" 
+            stroke="currentColor"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+        </div>
+        
+        <!-- Connect Button (when not authenticated) -->
+        <button 
+          v-if="!isServerAuthenticated"
+          @click="auth.showServerLogin.value = true"
+          class="px-3 py-1.5 bg-blue-700 hover:bg-blue-600 text-white rounded-lg text-xs font-medium transition-colors"
+        >
+          Connect to Server
+        </button>
+      </div>
+      
       <!-- State Badge -->
       <div class="flex items-center gap-2 px-3 py-1.5 bg-gray-800 rounded-full">
         <component 
@@ -827,6 +903,13 @@ function getStateColor(state: DashboardState): string {
         </div>
       </div>
     </div>
+
+    <!-- Server Login Modal -->
+    <ServerLoginModal 
+      v-if="auth.showServerLogin.value"
+      @close="auth.skipServerAuth"
+      @success="auth.onServerLoginSuccess"
+    />
 
   </div>
 </template>

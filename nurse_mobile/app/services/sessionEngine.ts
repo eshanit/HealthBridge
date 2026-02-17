@@ -18,6 +18,7 @@ import {
 } from '~/services/secureDb';
 import { useSecurityStore } from '~/stores/security';
 import { useAuthStore } from '~/stores/auth';
+import { syncSession, ensureSessionSynced, type SessionSyncResult } from '~/services/syncManager';
 
 // ============================================
 // Types
@@ -159,6 +160,7 @@ export async function createSession(patientId?: string): Promise<ClinicalSession
   const session: ClinicalSession = {
     _id: sessionId,
     id: sessionId,
+    type: 'clinicalSession',
     patientId,
     triage: 'unknown',
     status: 'open',
@@ -335,35 +337,91 @@ export async function updateSessionTriage(
 }
 
 /**
- * Complete a session
+ * Complete a session (discharge patient)
+ * Triggers on-demand sync to ensure all session data is persisted to the server.
  * @param sessionId - Session ID
  * @param finalStatus - Final status (completed, referred, cancelled)
+ * @param options - Sync options
  */
 export async function completeSession(
   sessionId: string,
-  finalStatus: 'completed' | 'referred' | 'cancelled' = 'completed'
-): Promise<void> {
-  const key = await getEncryptionKey();
+  finalStatus: 'completed' | 'referred' | 'cancelled' = 'completed',
+  options: {
+    syncOnComplete?: boolean;
+    syncTimeout?: number;
+  } = {}
+): Promise<{
+  success: boolean;
+  syncResult?: SessionSyncResult;
+  error?: string;
+}> {
+  const { syncOnComplete = true, syncTimeout = 30000 } = options;
   
-  const session = await loadSession(sessionId);
-  if (!session) {
-    throw new Error(`[SessionEngine] Session not found: ${sessionId}`);
+  try {
+    const key = await getEncryptionKey();
+    
+    const session = await loadSession(sessionId);
+    if (!session) {
+      throw new Error(`[SessionEngine] Session not found: ${sessionId}`);
+    }
+    
+    // Update session status
+    session.status = finalStatus;
+    session.stage = 'discharge';
+    session.updatedAt = Date.now();
+    
+    // Save to secureDb
+    await securePut(session, key);
+    
+    // Update cache
+    const index = _sessions.value.findIndex(s => s.id === sessionId);
+    if (index >= 0) {
+      _sessions.value[index] = session;
+    }
+    
+    console.log('[SessionEngine] Completed session:', session.id, finalStatus);
+    
+    // Trigger on-demand sync for this session
+    let syncResult: SessionSyncResult | undefined;
+    if (syncOnComplete) {
+      console.log('[SessionEngine] Triggering discharge sync for session:', sessionId);
+      
+      try {
+        syncResult = await syncSession(sessionId, {
+          timeout: syncTimeout,
+          includeRelated: true
+        });
+        
+        if (syncResult.success) {
+          console.log(`[SessionEngine] Session ${sessionId} synced successfully: ${syncResult.documentsSynced} documents in ${syncResult.duration}ms`);
+        } else {
+          console.warn(`[SessionEngine] Session ${sessionId} sync completed with errors:`, syncResult.errors);
+        }
+      } catch (syncError) {
+        console.error(`[SessionEngine] Failed to sync session ${sessionId}:`, syncError);
+        // Don't fail the discharge if sync fails - data will sync later
+        syncResult = {
+          success: false,
+          sessionId,
+          documentsSynced: 0,
+          errors: [syncError instanceof Error ? syncError.message : 'Sync failed'],
+          duration: 0
+        };
+      }
+    }
+    
+    return {
+      success: true,
+      syncResult
+    };
+    
+  } catch (error) {
+    console.error('[SessionEngine] Failed to complete session:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
   }
-  
-  session.status = finalStatus;
-  session.stage = 'discharge';
-  session.updatedAt = Date.now();
-  
-  // Save to secureDb
-  await securePut(session, key);
-  
-  // Update cache
-  const index = _sessions.value.findIndex(s => s.id === sessionId);
-  if (index >= 0) {
-    _sessions.value[index] = session;
-  }
-  
-  console.log('[SessionEngine] Completed session:', session.id, finalStatus);
 }
 
 /**

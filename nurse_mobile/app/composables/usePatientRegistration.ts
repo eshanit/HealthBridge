@@ -24,7 +24,6 @@ import type {
   EmergencyContact,
   InsuranceInfo
 } from '~/types/patient';
-import { useToast } from '#imports';
 import { setSessionPatient } from '~/composables/useSessionPatient';
 
 // ============================================

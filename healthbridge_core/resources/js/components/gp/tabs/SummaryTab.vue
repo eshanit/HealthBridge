@@ -9,8 +9,8 @@ interface Patient {
     id: string;
     cpt: string;
     name: string;
-    age: number;
-    gender: string;
+    age: number | null;
+    gender: string | null;
     triage_color: 'RED' | 'YELLOW' | 'GREEN';
     status: string;
     referral_source: string;
@@ -21,11 +21,16 @@ interface Patient {
         hr?: number;
         temp?: number;
         spo2?: number;
+        weight?: number;
     };
 }
 
 interface Props {
     patient: Patient;
+    chiefComplaint?: string;
+    medicalHistory?: string[];
+    currentMedications?: string[];
+    allergies?: string[];
 }
 
 const props = defineProps<Props>();
@@ -59,11 +64,12 @@ const vitalsStatus = computed(() => {
     if (!vitals) return null;
     
     const status: { name: string; value: number | undefined; status: 'normal' | 'warning' | 'critical' }[] = [];
+    const age = props.patient.age ?? 0; // Default to 0 if age is null
     
     // Respiratory Rate
     if (vitals.rr) {
         let rrStatus: 'normal' | 'warning' | 'critical' = 'normal';
-        if (props.patient.age < 5) {
+        if (age < 5) {
             if (vitals.rr > 40) rrStatus = 'warning';
             if (vitals.rr > 60) rrStatus = 'critical';
         } else {
@@ -76,7 +82,7 @@ const vitalsStatus = computed(() => {
     // Heart Rate
     if (vitals.hr) {
         let hrStatus: 'normal' | 'warning' | 'critical' = 'normal';
-        if (props.patient.age < 5) {
+        if (age < 5) {
             if (vitals.hr > 140) hrStatus = 'warning';
             if (vitals.hr > 180) hrStatus = 'critical';
         } else {
@@ -121,6 +127,21 @@ const requestAIExplanation = () => {
 
 <template>
     <div class="space-y-4">
+        <!-- Chief Complaint Card -->
+        <Card v-if="chiefComplaint">
+            <CardHeader class="pb-2">
+                <CardTitle class="text-lg flex items-center gap-2">
+                    <svg class="h-5 w-5 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    Chief Complaint
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
+                <p class="text-base font-medium">{{ chiefComplaint }}</p>
+            </CardContent>
+        </Card>
+
         <!-- Triage Summary Card -->
         <Card>
             <CardHeader class="pb-2">
@@ -188,6 +209,82 @@ const requestAIExplanation = () => {
             </CardContent>
         </Card>
 
+        <!-- Medical History Card -->
+        <Card v-if="medicalHistory && medicalHistory.length > 0">
+            <CardHeader class="pb-2">
+                <CardTitle class="text-lg flex items-center gap-2">
+                    <svg class="h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Medical History
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div class="flex flex-wrap gap-2">
+                    <Badge
+                        v-for="condition in medicalHistory"
+                        :key="condition"
+                        variant="outline"
+                        class="text-sm"
+                    >
+                        {{ condition }}
+                    </Badge>
+                </div>
+            </CardContent>
+        </Card>
+
+        <!-- Current Medications Card -->
+        <Card v-if="currentMedications && currentMedications.length > 0">
+            <CardHeader class="pb-2">
+                <CardTitle class="text-lg flex items-center gap-2">
+                    <svg class="h-5 w-5 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                    </svg>
+                    Current Medications
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
+                <ul class="space-y-1">
+                    <li
+                        v-for="medication in currentMedications"
+                        :key="medication"
+                        class="text-sm flex items-center gap-2"
+                    >
+                        <span class="h-1.5 w-1.5 rounded-full bg-purple-500"></span>
+                        {{ medication }}
+                    </li>
+                </ul>
+            </CardContent>
+        </Card>
+
+        <!-- Allergies Card -->
+        <Card v-if="allergies && allergies.length > 0">
+            <CardHeader class="pb-2">
+                <CardTitle class="text-lg flex items-center gap-2">
+                    <svg class="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    Allergies
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div class="flex flex-wrap gap-2">
+                    <span
+                        v-for="allergy in allergies"
+                        :key="allergy"
+                        :class="[
+                            'inline-flex items-center gap-1 px-2 py-1 rounded-md text-sm',
+                            allergy === 'None known'
+                                ? 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                                : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                        ]"
+                    >
+                        {{ allergy }}
+                    </span>
+                </div>
+            </CardContent>
+        </Card>
+
         <!-- AI Explanation Card -->
         <Card>
             <CardHeader class="pb-2">
@@ -213,7 +310,7 @@ const requestAIExplanation = () => {
         <!-- Patient History Summary -->
         <Card>
             <CardHeader class="pb-2">
-                <CardTitle class="text-lg">Patient History</CardTitle>
+                <CardTitle class="text-lg">Patient Demographics</CardTitle>
             </CardHeader>
             <CardContent>
                 <div class="text-sm text-muted-foreground">

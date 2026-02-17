@@ -271,6 +271,7 @@ export interface AuditEvent {
 export interface ClinicalFormInstance {
   // Identity
   _id: string;
+  type: 'clinicalForm';  // Document type for CouchDB sync
   schemaId: string;
   schemaVersion: string;
   

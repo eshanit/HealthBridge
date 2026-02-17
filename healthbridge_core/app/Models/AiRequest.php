@@ -21,6 +21,9 @@ class AiRequest extends Model
         'role',
         'session_couch_id',
         'form_couch_id',
+        'form_section_id',
+        'form_field_id',
+        'form_schema_id',
         'patient_cpt',
         'task',
         'use_case',
@@ -113,6 +116,30 @@ class AiRequest extends Model
     }
 
     /**
+     * Scope for specific form section.
+     */
+    public function scopeByFormSection($query, string $sectionId)
+    {
+        return $query->where('form_section_id', $sectionId);
+    }
+
+    /**
+     * Scope for specific form schema.
+     */
+    public function scopeByFormSchema($query, string $schemaId)
+    {
+        return $query->where('form_schema_id', $schemaId);
+    }
+
+    /**
+     * Scope for requests in a specific session.
+     */
+    public function scopeBySession($query, string $sessionId)
+    {
+        return $query->where('session_couch_id', $sessionId);
+    }
+
+    /**
      * Sync AI log from CouchDB document.
      */
     public static function syncFromCouch(array $doc): self
@@ -122,6 +149,9 @@ class AiRequest extends Model
             [
                 'session_couch_id' => $doc['sessionId'] ?? null,
                 'form_couch_id' => $doc['formInstanceId'] ?? null,
+                'form_section_id' => $doc['formSectionId'] ?? $doc['sectionId'] ?? null,
+                'form_field_id' => $doc['formFieldId'] ?? $doc['fieldId'] ?? null,
+                'form_schema_id' => $doc['formSchemaId'] ?? $doc['schemaId'] ?? null,
                 'task' => $doc['task'] ?? null,
                 'use_case' => $doc['useCase'] ?? null,
                 'prompt_version' => $doc['promptVersion'] ?? null,

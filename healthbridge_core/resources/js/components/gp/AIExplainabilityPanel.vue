@@ -9,8 +9,8 @@ interface Patient {
     id: string;
     cpt: string;
     name: string;
-    age: number;
-    gender: string;
+    age: number | null;
+    gender: string | null;
     triage_color: 'RED' | 'YELLOW' | 'GREEN';
     status: string;
     referral_source: string;

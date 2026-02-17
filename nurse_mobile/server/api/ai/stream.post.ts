@@ -1281,12 +1281,12 @@ export default defineEventHandler(async (event) => {
             if (serverInconsistencies.length > 0) {
               const serverMessages = serverInconsistencies.map(i => i.message);
               structuredResponse.inconsistencies = [
-                ...new Set([...structuredResponse.inconsistencies, ...serverMessages])
+                ...new Set([...(structuredResponse.inconsistencies || []), ...serverMessages])
               ];
               console.log(`[AI Stream] 🔍 Server detected ${serverInconsistencies.length} inconsistencies`);
             }
             
-            console.log(`[AI Stream]  Structured response: inconsistencies=${structuredResponse.inconsistencies.length}, teachingNotes=${structuredResponse.teachingNotes.length}, nextSteps=${structuredResponse.nextSteps.length}, confidence=${structuredResponse.confidence.toFixed(2)}`);
+            console.log(`[AI Stream] 📊 Structured response: inconsistencies=${structuredResponse.inconsistencies?.length || 0}, teachingNotes=${structuredResponse.teachingNotes?.length || 0}, nextSteps=${structuredResponse.nextSteps?.length || 0}, confidence=${structuredResponse.confidence?.toFixed(2) || 'N/A'}`);
 
             event.node.res.write(buildSSEEvent({
               type: 'complete',

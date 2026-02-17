@@ -19,6 +19,8 @@ class ClinicalForm extends Model
         'form_uuid',
         'session_couch_id',
         'patient_cpt',
+        'created_by_user_id',
+        'creator_role',
         'schema_id',
         'schema_version',
         'current_state_id',
@@ -64,6 +66,14 @@ class ClinicalForm extends Model
     public function patient()
     {
         return $this->belongsTo(Patient::class, 'patient_cpt', 'cpt');
+    }
+
+    /**
+     * Get the user (nurse/frontline worker) who created this form.
+     */
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_by_user_id');
     }
 
     /**

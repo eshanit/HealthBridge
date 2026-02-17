@@ -55,6 +55,15 @@ class Patient extends Model
     }
 
     /**
+     * Get the latest clinical session for this patient.
+     */
+    public function latestSession()
+    {
+        return $this->hasOne(ClinicalSession::class, 'patient_cpt', 'cpt')
+            ->latest('session_created_at');
+    }
+
+    /**
      * Get the patient's full name.
      */
     public function getFullNameAttribute(): string

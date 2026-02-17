@@ -114,6 +114,122 @@ class GPDashboardController extends Controller
     }
 
     /**
+     * Get referrals as JSON for the dashboard.
+     */
+    public function referralsJson(Request $request): JsonResponse
+    {
+        $query = ClinicalSession::with(['patient', 'referrals.referringUser', 'forms'])
+            ->referred()
+            ->orderBy('workflow_state_updated_at', 'desc');
+
+        // Filter by priority if provided
+        if ($request->has('priority')) {
+            $query->byPriority($request->priority);
+        }
+
+        // Filter by search term
+        if ($request->has('search') && strlen($request->search) >= 2) {
+            $search = $request->search;
+            $query->whereHas('patient', function ($q) use ($search) {
+                $q->where('first_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('cpt', 'like', "%{$search}%");
+            });
+        }
+
+        $sessions = $query->get();
+
+        // Separate into high priority (red) and normal priority
+        $highPriority = $sessions->filter(function ($session) {
+            return $session->triage_priority === 'red';
+        })->map(function ($session) {
+            return $this->formatReferralForQueue($session);
+        })->values();
+
+        $normalPriority = $sessions->filter(function ($session) {
+            return $session->triage_priority !== 'red';
+        })->map(function ($session) {
+            return $this->formatReferralForQueue($session);
+        })->values();
+
+        return response()->json([
+            'referrals' => [
+                'high_priority' => $highPriority,
+                'normal_priority' => $normalPriority,
+            ],
+        ]);
+    }
+
+    /**
+     * Format a session as a referral for the queue.
+     */
+    protected function formatReferralForQueue(ClinicalSession $session): array
+    {
+        $referral = $session->referrals->first();
+        
+        // Get onboarding form data (first completed form with calculated data)
+        $onboardingForm = $session->forms->firstWhere('status', 'completed');
+        
+        // Extract onboarding data from form
+        $vitals = null;
+        $dangerSigns = [];
+        $medicalHistory = [];
+        $currentMedications = [];
+        $allergies = [];
+        
+        if ($onboardingForm) {
+            $calculated = $onboardingForm->calculated ?? [];
+            $answers = $onboardingForm->answers ?? [];
+            
+            // Get vitals from calculated or answers
+            $vitals = $calculated['vitals'] ?? $answers['vitals'] ?? null;
+            
+            // Get danger signs
+            $dangerSigns = $calculated['dangerSigns'] ?? [];
+            if (empty($dangerSigns) && ($calculated['hasDangerSign'] ?? false)) {
+                $dangerSigns = ['Danger signs detected'];
+            }
+            
+            // Get medical history, medications, allergies from answers
+            $medicalHistory = $answers['medicalHistory'] ?? [];
+            $currentMedications = $answers['currentMedications'] ?? [];
+            $allergies = $answers['allergies'] ?? [];
+        }
+        
+        return [
+            'id' => $referral?->id ?? $session->id,
+            'couch_id' => $session->couch_id,
+            'patient' => [
+                'id' => $session->patient?->couch_id ?? $session->couch_id,
+                'cpt' => $session->patient?->cpt,
+                'name' => $session->patient?->full_name ?? 'Unknown',
+                'age' => $session->patient?->age,
+                'gender' => $session->patient?->gender,
+                'triage_color' => strtoupper($session->triage_priority ?? 'GREEN'),
+                'status' => $session->workflow_state,
+                'waiting_minutes' => $session->workflow_state_updated_at
+                    ? now()->diffInMinutes($session->workflow_state_updated_at)
+                    : 0,
+                'danger_signs' => $dangerSigns,
+            ],
+            'chief_complaint' => $session->chief_complaint,
+            'vitals' => $vitals ? [
+                'rr' => $vitals['rr'] ?? null,
+                'hr' => $vitals['hr'] ?? null,
+                'temp' => $vitals['temp'] ?? null,
+                'spo2' => $vitals['spo2'] ?? null,
+                'weight' => $vitals['weight'] ?? null,
+            ] : null,
+            'medical_history' => $medicalHistory,
+            'current_medications' => $currentMedications,
+            'allergies' => $allergies,
+            'referred_by' => $referral?->referringUser?->name ?? 'Unknown',
+            'referral_notes' => $referral?->reason ?? '',
+            'created_at' => $session->workflow_state_updated_at?->toIso8601String() ?? now()->toIso8601String(),
+        ];
+    }
+
+    /**
      * Get a single referral details.
      */
     public function showReferral(string $couchId): JsonResponse
@@ -268,6 +384,55 @@ class GPDashboardController extends Controller
         return Inertia::render('gp/UnderTreatment', [
             'sessions' => $sessions,
             'filters' => $request->only(['search']),
+        ]);
+    }
+
+    /**
+     * Get all cases assigned to the current GP (combined IN_GP_REVIEW and UNDER_TREATMENT).
+     */
+    public function myCases(Request $request): JsonResponse
+    {
+        $user = auth()->user();
+
+        $validated = $request->validate([
+            'state' => ['nullable', 'string', 'in:IN_GP_REVIEW,UNDER_TREATMENT'],
+            'search' => ['nullable', 'string', 'min:2'],
+            'per_page' => ['nullable', 'integer', 'min:10', 'max:100'],
+        ]);
+
+        $states = $validated['state'] 
+            ? [$validated['state']]
+            : [ClinicalSession::WORKFLOW_IN_GP_REVIEW, ClinicalSession::WORKFLOW_UNDER_TREATMENT];
+
+        $query = ClinicalSession::with(['patient', 'referrals'])
+            ->whereIn('workflow_state', $states)
+            ->whereHas('referrals', function ($q) use ($user) {
+                $q->where('assigned_to_user_id', $user->id);
+            })
+            ->orderBy('workflow_state_updated_at', 'desc');
+
+        // Filter by search term
+        if (!empty($validated['search'])) {
+            $search = $validated['search'];
+            $query->whereHas('patient', function ($q) use ($search) {
+                $q->where('first_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('cpt', 'like', "%{$search}%");
+            });
+        }
+
+        $perPage = $validated['per_page'] ?? 20;
+        $sessions = $query->paginate($perPage);
+
+        return response()->json([
+            'success' => true,
+            'data' => $sessions->map(fn ($session) => $this->formatSessionForDashboard($session)),
+            'pagination' => [
+                'current_page' => $sessions->currentPage(),
+                'last_page' => $sessions->lastPage(),
+                'per_page' => $sessions->perPage(),
+                'total' => $sessions->total(),
+            ],
         ]);
     }
 

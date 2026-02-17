@@ -8,8 +8,8 @@ interface Patient {
     id: string;
     cpt: string;
     name: string;
-    age: number;
-    gender: string;
+    age: number | null;
+    gender: string | null;
     triage_color: 'RED' | 'YELLOW' | 'GREEN';
     status: string;
     referral_source: string;
@@ -20,15 +20,28 @@ interface Patient {
         hr?: number;
         temp?: number;
         spo2?: number;
+        weight?: number;
     };
 }
 
 interface Referral {
     id: number;
+    couch_id?: string;
     patient: Patient;
     referred_by: string;
     referral_notes: string;
     created_at: string;
+    chief_complaint?: string;
+    vitals?: {
+        rr?: number;
+        hr?: number;
+        temp?: number;
+        spo2?: number;
+        weight?: number;
+    };
+    medical_history?: string[];
+    current_medications?: string[];
+    allergies?: string[];
 }
 
 interface Props {
@@ -58,6 +71,24 @@ const triageLabel = computed(() => {
     }
 });
 
+// Extract onboarding data from referral
+const chiefComplaint = computed(() => props.referral?.chief_complaint);
+const medicalHistory = computed(() => props.referral?.medical_history ?? []);
+const currentMedications = computed(() => props.referral?.current_medications ?? []);
+const allergies = computed(() => props.referral?.allergies ?? []);
+
+// Merge vitals from patient and referral
+const mergedVitals = computed(() => ({
+    ...props.referral?.vitals,
+    ...props.patient.vitals,
+}));
+
+// Patient with merged vitals
+const patientWithVitals = computed(() => ({
+    ...props.patient,
+    vitals: mergedVitals.value,
+}));
+
 // Methods
 const handleStateChange = (newState: string) => {
     emit('stateChange', newState);
@@ -80,7 +111,7 @@ const handleAITask = async (task: string) => {
                 context: {
                     triage_color: props.patient.triage_color,
                     danger_signs: props.patient.danger_signs,
-                    vitals: props.patient.vitals,
+                    vitals: mergedVitals.value,
                 },
             }),
         });
@@ -114,8 +145,12 @@ const toggleAIPanel = () => {
             <!-- Clinical Tabs (Main Content) -->
             <div class="flex-1 overflow-hidden">
                 <ClinicalTabs
-                    :patient="patient"
+                    :patient="patientWithVitals"
                     :active-tab="activeTab"
+                    :chief-complaint="chiefComplaint"
+                    :medical-history="medicalHistory"
+                    :current-medications="currentMedications"
+                    :allergies="allergies"
                     @update:active-tab="activeTab = $event"
                     @ai-task="handleAITask"
                 />

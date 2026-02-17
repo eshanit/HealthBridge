@@ -42,7 +42,9 @@ export default defineNuxtConfig({
       aiEnabled: process.env.AI_ENABLED === 'true',
       aiAuthToken: process.env.AI_AUTH_TOKEN || 'local-dev-token',
       aiEndpoint: process.env.OLLAMA_URL || 'http://127.0.0.1:11434',
-      aiModel: process.env.OLLAMA_MODEL || 'gemma3:4b'
+      aiModel: process.env.OLLAMA_MODEL || 'gemma3:4b',
+      // API Base URL for Laravel backend (CouchDB proxy, AI gateway, etc.)
+      apiBaseUrl: process.env.VITE_API_BASE_URL || 'http://localhost:8000',
     }
   }
 })

@@ -9,8 +9,8 @@ interface Patient {
     id: string;
     cpt: string;
     name: string;
-    age: number;
-    gender: string;
+    age: number | null;
+    gender: string | null;
     triage_color: 'RED' | 'YELLOW' | 'GREEN';
     status: string;
     referral_source: string;
@@ -152,7 +152,8 @@ const cancelAction = () => {
     pendingAction.value = null;
 };
 
-const formatGender = (gender: string): string => {
+const formatGender = (gender: string | null | undefined): string => {
+    if (!gender) return '-';
     return gender.charAt(0).toUpperCase();
 };
 </script>
@@ -168,7 +169,7 @@ const formatGender = (gender: string): string => {
                             {{ patient.name }}
                         </h1>
                         <div class="flex items-center gap-2 text-muted-foreground">
-                            <span>{{ patient.age }}y</span>
+                            <span>{{ patient.age ?? '-' }}y</span>
                             <span>•</span>
                             <span>{{ formatGender(patient.gender) }}</span>
                             <span>•</span>

@@ -9,8 +9,8 @@ interface Patient {
     id: string;
     cpt: string;
     name: string;
-    age: number;
-    gender: string;
+    age: number | null;
+    gender: string | null;
     triage_color: 'RED' | 'YELLOW' | 'GREEN';
     status: string;
     referral_source: string;
@@ -111,7 +111,7 @@ const getTriageIcon = (color: string): string => {
                                         </Badge>
                                     </div>
                                     <div class="text-sm text-muted-foreground mt-0.5">
-                                        {{ referral.patient.age }}y • {{ referral.patient.gender }}
+                                        {{ referral.patient.age ?? '-' }}y • {{ referral.patient.gender ?? '-' }}
                                     </div>
                                     <div class="text-xs text-muted-foreground mt-1">
                                         Referred by: {{ referral.referred_by }}
@@ -197,7 +197,7 @@ const getTriageIcon = (color: string): string => {
                                         </Badge>
                                     </div>
                                     <div class="text-sm text-muted-foreground mt-0.5">
-                                        {{ referral.patient.age }}y • {{ referral.patient.gender }}
+                                        {{ referral.patient.age ?? '-' }}y • {{ referral.patient.gender ?? '-' }}
                                     </div>
                                     <div class="text-xs text-muted-foreground mt-1">
                                         Referred by: {{ referral.referred_by }}

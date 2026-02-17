@@ -710,10 +710,10 @@ async function requestSection7Report() {
         onComplete: (fullResponse: string, duration: number, summary?: string, structured?: StructuredResponse) => {
           if (structured) {
             console.log('[Assessment] Section 7 Report - Structured response:', {
-              inconsistencies: structured.inconsistencies.length,
-              teachingNotes: structured.teachingNotes.length,
-              nextSteps: structured.nextSteps.length,
-              confidence: structured.confidence.toFixed(2)
+              inconsistencies: structured.inconsistencies?.length || 0,
+              teachingNotes: structured.teachingNotes?.length || 0,
+              nextSteps: structured.nextSteps?.length || 0,
+              confidence: structured.confidence?.toFixed(2) || 'N/A'
             });
             
             structuredAIResponse.value = structured;

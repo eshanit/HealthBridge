@@ -2,6 +2,9 @@
  * Authentication Composable
  * 
  * Provides reactive authentication state and methods for Vue components
+ * 
+ * Updated to integrate server authentication for PouchDB sync.
+ * Flow: Local PIN auth → Server auth (Sanctum) → Sync initialization
  */
 
 import { ref, computed, onMounted } from 'vue';
@@ -10,12 +13,15 @@ import { useSecurityStore } from '~/stores/security';
 import { useKeyManager } from '~/composables/useKeyManager';
 import { useAppInit } from '~/composables/useAppInit';
 import { logAuditEvent } from '~/services/auditLogger';
+import { useServerAuth } from '~/services/serverAuth';
+import { initializeSyncManager, startSync, stopSync, getSyncStatus, cleanupSyncManager } from '~/services/syncManager';
 
 export function useAuth() {
   const authStore = useAuthStore();
   const securityStore = useSecurityStore();
   const { initializeFromPin, validateKeyForOperation } = useKeyManager();
   const { initialize: initializeApp } = useAppInit();
+  const serverAuth = useServerAuth();
 
   // Local state
   const isLoading = ref(true);
@@ -24,6 +30,8 @@ export function useAuth() {
   const confirmPin = ref('');
   const isConfirmingPin = ref(false);
   const isSettingUpName = ref(false);
+  const showServerLogin = ref(false);
+  const isServerAuthenticating = ref(false);
 
   // Computed
   const isAuthenticated = computed(() => authStore.isAuthenticated);
@@ -34,6 +42,10 @@ export function useAuth() {
   const maxFailedAttempts = 5;
   // Get nurseName from store (uses VueUse useLocalStorage for persistence)
   const nurseName = computed(() => authStore.nurseName);
+  
+  // Server auth state
+  const isServerAuthenticated = computed(() => serverAuth.isAuthenticated.value);
+  const syncStatus = computed(() => getSyncStatus());
 
   // Initialize on mount
   async function initialize() {
@@ -154,7 +166,89 @@ export function useAuth() {
       'success'
     );
 
+    // Attempt server authentication for sync
+    attemptServerAuth();
+
     return true;
+  }
+
+  /**
+   * Attempt server authentication for sync
+   * Shows login modal if not already authenticated
+   */
+  async function attemptServerAuth(): Promise<boolean> {
+    // Check if already authenticated with server
+    if (serverAuth.isAuthenticated.value) {
+      console.log('[useAuth] Already authenticated with server - validating token...');
+      
+      // Validate the token is actually valid with the server before starting sync
+      try {
+        const isValid = await serverAuth.validateToken();
+        if (!isValid) {
+          console.warn('[useAuth] Server token validation failed - need to re-login');
+          showServerLogin.value = true;
+          return false;
+        }
+        console.log('[useAuth] Server token validated successfully');
+      } catch (tokenError) {
+        console.warn('[useAuth] Server token validation error:', tokenError);
+        // Token is invalid, need to re-authenticate with server
+        showServerLogin.value = true;
+        return false;
+      }
+      
+      // Always try to start/restart sync on PIN login
+      // The startSync function will handle checking if it's already running
+      const syncInfo = getSyncStatus();
+      console.log('[useAuth] Current sync status:', syncInfo.status);
+      
+      try {
+        // Stop any existing sync first to ensure clean restart
+        await stopSync();
+        // Re-initialize and start sync
+        await initializeSyncManager();
+        await startSync();
+        console.log('[useAuth] Sync restarted successfully');
+      } catch (error) {
+        console.error('[useAuth] Failed to restart sync:', error);
+        // If sync fails due to auth, show login modal
+        if (error instanceof Error && error.message.includes('auth')) {
+          showServerLogin.value = true;
+          return false;
+        }
+      }
+      return true;
+    }
+
+    // Show server login modal
+    console.log('[useAuth] Server authentication required for sync');
+    showServerLogin.value = true;
+    return false;
+  }
+
+  /**
+   * Handle successful server login
+   */
+  async function onServerLoginSuccess(): Promise<void> {
+    showServerLogin.value = false;
+    
+    try {
+      // Stop any existing sync first
+      await stopSync();
+      await initializeSyncManager();
+      await startSync();
+      console.log('[useAuth] Sync started after server login');
+    } catch (error) {
+      console.error('[useAuth] Failed to start sync after server login:', error);
+    }
+  }
+
+  /**
+   * Skip server authentication (offline mode)
+   */
+  function skipServerAuth(): void {
+    showServerLogin.value = false;
+    console.log('[useAuth] Server authentication skipped - running in offline mode');
   }
 
   /**
@@ -249,19 +343,46 @@ export function useAuth() {
   /**
    * Logout
    */
-  function logout() {
+  async function logout() {
+    // Stop sync and clean up before clearing security state
+    try {
+      await stopSync();
+      console.log('[useAuth] Sync stopped on logout');
+    } catch (error) {
+      console.warn('[useAuth] Failed to stop sync on logout:', error);
+    }
+    
     securityStore.lock();
     authStore.logout();
     currentPin.value = '';
+    
+    logAuditEvent(
+      'session_end',
+      'info',
+      'useAuth',
+      { method: 'logout' },
+      'success'
+    );
   }
 
   /**
    * Factory reset
    */
   async function factoryReset(): Promise<void> {
+    // Clean up sync manager first
+    await cleanupSyncManager();
+    
     await authStore.factoryReset();
     await securityStore.factoryReset();
     currentPin.value = '';
+    
+    logAuditEvent(
+      'database_reset',
+      'warning',
+      'useAuth',
+      {},
+      'success'
+    );
   }
 
   /**
@@ -280,6 +401,8 @@ export function useAuth() {
     isConfirmingPin,
     nurseName,
     isSettingUpName,
+    showServerLogin,
+    isServerAuthenticating,
 
     // Computed
     isAuthenticated,
@@ -288,6 +411,8 @@ export function useAuth() {
     remainingLockoutTime,
     failedAttempts,
     maxFailedAttempts,
+    isServerAuthenticated,
+    syncStatus,
 
     // Actions
     initialize,
@@ -298,6 +423,9 @@ export function useAuth() {
     addPinDigit,
     removePinDigit,
     clearPin,
+    attemptServerAuth,
+    onServerLoginSuccess,
+    skipServerAuth,
     getPinEntryMode,
     checkPinEntryComplete,
     resetPinEntry,

@@ -201,6 +201,7 @@ class ClinicalFormEngine {
 
     const instance: ClinicalFormInstance = {
       _id: instanceId,
+      type: 'clinicalForm',
       schemaId,
       schemaVersion: schema.version,
       currentStateId: firstState.id,

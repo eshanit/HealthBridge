@@ -18,6 +18,8 @@ class ClinicalSession extends Model
         'couch_id',
         'session_uuid',
         'patient_cpt',
+        'created_by_user_id',
+        'provider_role',
         'stage',
         'status',
         'workflow_state',
@@ -25,6 +27,7 @@ class ClinicalSession extends Model
         'triage_priority',
         'chief_complaint',
         'notes',
+        'treatment_plan',
         'form_instance_ids',
         'session_created_at',
         'session_updated_at',
@@ -40,6 +43,7 @@ class ClinicalSession extends Model
      */
     protected $casts = [
         'form_instance_ids' => 'array',
+        'treatment_plan' => 'array',
         'raw_document' => 'array',
         'session_created_at' => 'datetime',
         'session_updated_at' => 'datetime',
@@ -79,6 +83,14 @@ class ClinicalSession extends Model
     public function patient()
     {
         return $this->belongsTo(Patient::class, 'patient_cpt', 'cpt');
+    }
+
+    /**
+     * Get the user (nurse/frontline worker) who created this session.
+     */
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_by_user_id');
     }
 
     /**

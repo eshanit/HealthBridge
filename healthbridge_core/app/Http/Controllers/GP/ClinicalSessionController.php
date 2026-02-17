@@ -248,6 +248,138 @@ class ClinicalSessionController extends Controller
     }
 
     /**
+     * Update the treatment plan for a session.
+     */
+    public function updateTreatmentPlan(Request $request, string $couchId): JsonResponse
+    {
+        $request->validate([
+            'treatment_plan' => 'required|array',
+            'treatment_plan.*.id' => 'required|string',
+            'treatment_plan.*.name' => 'required|string|max:255',
+            'treatment_plan.*.dose' => 'required|string|max:100',
+            'treatment_plan.*.route' => 'required|string|max:50',
+            'treatment_plan.*.frequency' => 'required|string|max:100',
+            'treatment_plan.*.duration' => 'required|string|max:100',
+            'treatment_plan.*.instructions' => 'nullable|string|max:500',
+        ]);
+
+        $session = ClinicalSession::where('couch_id', $couchId)->firstOrFail();
+
+        $session->update([
+            'treatment_plan' => $request->treatment_plan,
+        ]);
+
+        return response()->json([
+            'message' => 'Treatment plan updated successfully.',
+            'session' => $session->fresh(['patient', 'referrals']),
+        ]);
+    }
+
+    /**
+     * Get the timeline for a session.
+     */
+    public function timeline(string $couchId): JsonResponse
+    {
+        $session = ClinicalSession::with([
+            'patient',
+            'stateTransitions.user',
+            'aiRequests',
+            'comments.user',
+            'forms',
+            'referrals',
+        ])
+            ->where('couch_id', $couchId)
+            ->firstOrFail();
+
+        $timeline = collect();
+
+        // Add state transitions
+        foreach ($session->stateTransitions as $transition) {
+            $timeline->push([
+                'id' => "transition_{$transition->id}",
+                'type' => 'state_change',
+                'title' => "Status changed to {$transition->to_state}",
+                'description' => $transition->reason ?? 'No reason provided',
+                'user' => $transition->user?->name,
+                'timestamp' => $transition->created_at->toIso8601String(),
+                'metadata' => $transition->metadata,
+            ]);
+        }
+
+        // Add AI requests
+        foreach ($session->aiRequests as $aiRequest) {
+            $timeline->push([
+                'id' => "ai_{$aiRequest->id}",
+                'type' => 'ai_request',
+                'title' => "AI Task: {$aiRequest->task}",
+                'description' => "Model: {$aiRequest->model}",
+                'user' => null,
+                'timestamp' => $aiRequest->requested_at?->toIso8601String() ?? $aiRequest->created_at->toIso8601String(),
+                'metadata' => [
+                    'task' => $aiRequest->task,
+                    'model' => $aiRequest->model,
+                    'latency_ms' => $aiRequest->latency_ms,
+                ],
+            ]);
+        }
+
+        // Add comments
+        foreach ($session->comments as $comment) {
+            $timeline->push([
+                'id' => "comment_{$comment->id}",
+                'type' => 'comment',
+                'title' => 'Case Comment',
+                'description' => $comment->content,
+                'user' => $comment->user?->name,
+                'timestamp' => $comment->created_at->toIso8601String(),
+                'metadata' => [
+                    'visibility' => $comment->visibility,
+                ],
+            ]);
+        }
+
+        // Add forms
+        foreach ($session->forms as $form) {
+            $timeline->push([
+                'id' => "form_{$form->id}",
+                'type' => 'form',
+                'title' => "Form: {$form->form_type}",
+                'description' => $form->is_complete ? 'Completed' : 'In Progress',
+                'user' => null,
+                'timestamp' => $form->created_at->toIso8601String(),
+                'metadata' => [
+                    'form_type' => $form->form_type,
+                    'is_complete' => $form->is_complete,
+                ],
+            ]);
+        }
+
+        // Add referrals
+        foreach ($session->referrals as $referral) {
+            $timeline->push([
+                'id' => "referral_{$referral->id}",
+                'type' => 'referral',
+                'title' => "Referral: {$referral->specialty}",
+                'description' => $referral->reason,
+                'user' => null,
+                'timestamp' => $referral->created_at->toIso8601String(),
+                'metadata' => [
+                    'status' => $referral->status,
+                    'priority' => $referral->priority,
+                    'specialty' => $referral->specialty,
+                ],
+            ]);
+        }
+
+        // Sort by timestamp descending
+        $timeline = $timeline->sortByDesc('timestamp')->values();
+
+        return response()->json([
+            'timeline' => $timeline,
+        ]);
+    }
+
+    /**
      * Format session for API response.
      */
     protected function formatSession(ClinicalSession $session): array

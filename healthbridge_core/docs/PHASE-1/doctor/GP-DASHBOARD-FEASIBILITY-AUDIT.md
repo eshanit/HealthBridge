@@ -270,8 +270,8 @@ resources/js/pages/gp/
 | 1A.1 | Add workflow states to `ClinicalSession` | Migration + model update | ✅ Completed |
 | 1A.2 | Create `StateTransition` model for audit | Migration + model | ✅ Completed |
 | 1A.3 | Implement `WorkflowStateMachine` service | Service class | ✅ Completed |
-| 1A.4 | Update `SyncService` for new states | Service update | ⚠️ Needs verification |
-| 1A.5 | Add referral auto-creation for RED cases | Service update | ⚠️ Needs implementation |
+| 1A.4 | Update `SyncService` for new states | Service update | ✅ Completed |
+| 1A.5 | Add referral auto-creation for RED cases | ClinicalSessionObserver | ✅ Completed |
 
 ### Phase 1B: Referral Dashboard (Days 5-8)
 
@@ -279,11 +279,11 @@ resources/js/pages/gp/
 
 | Task | Description | Deliverable | Status |
 |------|-------------|-------------|--------|
-| 1B.1 | Create `GPDashboardController` | Controller | ⚠️ Exists, needs updates |
-| 1B.2 | Implement referral queue API | API endpoints | ⚠️ Needs implementation |
+| 1B.1 | Create `GPDashboardController` | Controller | ✅ Completed |
+| 1B.2 | Implement referral queue API | API endpoints | ✅ Completed |
 | 1B.3 | Create `Dashboard.vue` page | Vue component | ✅ Completed |
 | 1B.4 | Create `PatientQueue.vue` component | Vue component | ✅ Completed |
-| 1B.5 | Add real-time polling | Frontend polling | ✅ Implemented (30s interval) |
+| 1B.5 | Add real-time polling | Frontend polling | ✅ Completed (30s interval) |
 
 ### Phase 1C: Consultation Flow (Days 9-14)
 
@@ -295,8 +295,8 @@ resources/js/pages/gp/
 | 1C.2 | Create `PatientHeader.vue` | Vue component | ✅ Completed |
 | 1C.3 | Create 5 clinical tab components | Vue components | ✅ Completed |
 | 1C.4 | Create `AIExplainabilityPanel.vue` | Vue component | ✅ Completed |
-| 1C.5 | Implement state transition UI | Vue + API | ⚠️ UI Ready, needs API |
-| 1C.6 | Create new patient registration | Vue + API | ⚠️ UI Ready, needs API |
+| 1C.5 | Implement state transition UI | Vue + API | ✅ Completed |
+| 1C.6 | Create new patient registration | Vue + API | ✅ Completed |
 
 ### Phase 1D: Governance (Days 15-18)
 
@@ -305,8 +305,8 @@ resources/js/pages/gp/
 | Task | Description | Deliverable | Status |
 |------|-------------|-------------|--------|
 | 1D.1 | Create `AuditStrip.vue` | Vue component | ✅ Completed |
-| 1D.2 | Implement state transition logging | Service + model | ⚠️ Needs implementation |
-| 1D.3 | Add override tracking | Model update | ⚠️ Needs implementation |
+| 1D.2 | Implement state transition logging | Service + model | ✅ Completed |
+| 1D.3 | Add override tracking | Model update | ✅ Completed |
 | 1D.4 | Create audit viewer | Vue component | ⚠️ Needs implementation |
 
 ### Testing & Polish (Days 19-20)
@@ -323,27 +323,27 @@ resources/js/pages/gp/
 
 ### 8.1 Functional Success Criteria
 
-- [ ] GP can view referral queue sorted by priority
-- [ ] GP can accept/reject referrals
-- [ ] GP can view patient summary with triage data
-- [ ] GP can access AI explainability for each case
-- [ ] GP can record diagnosis and treatment
-- [ ] GP can close patient encounters
-- [ ] All state transitions are logged
-- [ ] All AI calls are logged with audit trail
+- [x] GP can view referral queue sorted by priority
+- [x] GP can accept/reject referrals
+- [x] GP can view patient summary with triage data
+- [x] GP can access AI explainability for each case
+- [x] GP can record diagnosis and treatment
+- [x] GP can close patient encounters
+- [x] All state transitions are logged
+- [x] All AI calls are logged with audit trail
 
 ### 8.2 Technical Success Criteria
 
 - [ ] Page load time < 2 seconds
 - [ ] AI response time < 5 seconds (with Ollama running)
 - [ ] Zero data loss on sync conflicts
-- [ ] 100% audit coverage for clinical actions
+- [x] 100% audit coverage for clinical actions
 - [ ] All tests passing
 
 ### 8.3 Clinical Safety Criteria
 
-- [ ] AI outputs clearly marked as "Support Only"
-- [ ] No AI output can change triage directly
+- [x] AI outputs clearly marked as "Support Only"
+- [x] No AI output can change triage directly
 - [ ] All overrides require confirmation
 - [ ] Patient verification before critical actions
 

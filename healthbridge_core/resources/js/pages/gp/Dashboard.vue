@@ -5,6 +5,7 @@ import { type BreadcrumbItem } from '@/types';
 import PatientQueue from '@/components/gp/PatientQueue.vue';
 import PatientWorkspace from '@/components/gp/PatientWorkspace.vue';
 import AuditStrip from '@/components/gp/AuditStrip.vue';
+import GlobalPatientSearch from '@/components/gp/GlobalPatientSearch.vue';
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useEcho } from '@/composables/useEcho';
 
@@ -12,8 +13,8 @@ interface Patient {
     id: string;
     cpt: string;
     name: string;
-    age: number;
-    gender: string;
+    age: number | null;
+    gender: string | null;
     triage_color: 'RED' | 'YELLOW' | 'GREEN';
     status: string;
     referral_source: string;
@@ -24,15 +25,28 @@ interface Patient {
         hr?: number;
         temp?: number;
         spo2?: number;
+        weight?: number;
     };
 }
 
 interface Referral {
     id: number;
+    couch_id?: string;
     patient: Patient;
     referred_by: string;
     referral_notes: string;
     created_at: string;
+    chief_complaint?: string;
+    vitals?: {
+        rr?: number;
+        hr?: number;
+        temp?: number;
+        spo2?: number;
+        weight?: number;
+    };
+    medical_history?: string[];
+    current_medications?: string[];
+    allergies?: string[];
 }
 
 interface AuditEntry {
@@ -55,6 +69,7 @@ const referrals = ref<Referral[]>([]);
 const auditLog = ref<AuditEntry[]>([]);
 const isLoading = ref(false);
 const pollingInterval = ref<number | null>(null);
+const showSearch = ref(false);
 
 // Computed
 const selectedPatient = computed(() => {
@@ -122,10 +137,12 @@ const rejectReferral = async (referralId: number) => {
 
 const fetchReferrals = async () => {
     try {
-        const response = await fetch('/gp/referrals');
+        const response = await fetch('/gp/referrals/json');
         if (response.ok) {
             const data = await response.json();
-            referrals.value = data.referrals || [];
+            const highPriority = data.referrals?.high_priority || [];
+            const normalPriority = data.referrals?.normal_priority || [];
+            referrals.value = [...highPriority, ...normalPriority];
         }
     } catch (error) {
         console.error('Failed to fetch referrals:', error);
@@ -155,14 +172,35 @@ const handleAICall = (task: string) => {
     addAuditEntry('AI Call', `Task: ${task}`);
 };
 
+const handleSearchSelect = (patient: { id: number | string; couch_id?: string }) => {
+    const patientId = patient.couch_id || String(patient.id);
+    selectPatient(patientId);
+    showSearch.value = false;
+};
+
+// Keyboard shortcuts
+const handleKeydown = (event: KeyboardEvent) => {
+    // Ctrl+K or Cmd+K to open search
+    if ((event.ctrlKey || event.metaKey) && event.key === 'k') {
+        event.preventDefault();
+        showSearch.value = !showSearch.value;
+    }
+    // Escape to close search
+    if (event.key === 'Escape' && showSearch.value) {
+        showSearch.value = false;
+    }
+};
+
 // Lifecycle
 onMounted(() => {
     fetchReferrals();
     
+    // Add keyboard event listener
+    window.addEventListener('keydown', handleKeydown);
+    
     // Initialize WebSocket connection for real-time updates
     const echo = useEcho();
     if (echo) {
-        // Join the GP dashboard presence channel
         echo.join('gp.dashboard')
             .here((users: unknown[]) => {
                 console.log('Users online:', users);
@@ -177,14 +215,12 @@ onMounted(() => {
                 console.error('Presence channel error:', error);
             });
         
-        // Listen for referral events
         echo.channel('referrals')
             .listen('ReferralCreated', (event: { session: Referral }) => {
                 referrals.value.unshift(event.session);
                 addAuditEntry('New Referral', `Patient ${event.session.patient?.name || 'Unknown'} added`);
             })
             .listen('SessionStateChanged', (event: { couch_id: string; to_state: string; patient: { name: string } }) => {
-                // Update the referral in the list
                 const index = referrals.value.findIndex(r => r.patient.id === event.couch_id);
                 if (index > -1) {
                     referrals.value[index].patient.status = event.to_state;
@@ -192,17 +228,17 @@ onMounted(() => {
                 addAuditEntry('State Changed', `${event.patient?.name || 'Patient'} → ${event.to_state}`);
             });
     } else {
-        // Fallback to polling if WebSocket is not available
         pollingInterval.value = window.setInterval(fetchReferrals, 30000);
     }
 });
 
 onUnmounted(() => {
+    window.removeEventListener('keydown', handleKeydown);
+    
     if (pollingInterval.value) {
         clearInterval(pollingInterval.value);
     }
     
-    // Leave channels
     const echo = useEcho();
     if (echo) {
         echo.leave('gp.dashboard');
@@ -216,6 +252,13 @@ onUnmounted(() => {
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex h-full flex-1 flex-col overflow-hidden">
+            <!-- Global Search Modal -->
+            <GlobalPatientSearch 
+                v-if="showSearch" 
+                @close="showSearch = false"
+                @select="handleSearchSelect"
+            />
+            
             <!-- Main Content Area -->
             <div class="flex flex-1 overflow-hidden">
                 <!-- Left Panel - Patient Queues -->
@@ -232,13 +275,44 @@ onUnmounted(() => {
 
                 <!-- Main Workspace -->
                 <div class="flex-1 flex flex-col overflow-hidden bg-background">
-                    <PatientWorkspace
-                        v-if="selectedPatient"
-                        :patient="selectedPatient"
-                        :referral="selectedReferral"
-                        @state-change="handleStateChange"
-                        @ai-call="handleAICall"
-                    />
+                    <template v-if="selectedPatient">
+                        <!-- Patient Header with Quick Actions -->
+                        <div class="border-b p-4 bg-card">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h2 class="text-xl font-semibold">{{ selectedPatient.name }}</h2>
+                                    <p class="text-sm text-muted-foreground">
+                                        {{ selectedPatient.age }}y {{ selectedPatient.gender }} • 
+                                        <span :class="{
+                                            'text-red-600': selectedPatient.triage_color === 'RED',
+                                            'text-yellow-600': selectedPatient.triage_color === 'YELLOW',
+                                            'text-green-600': selectedPatient.triage_color === 'GREEN'
+                                        }">
+                                            {{ selectedPatient.triage_color }} Priority
+                                        </span>
+                                    </p>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button 
+                                        @click="showSearch = true"
+                                        class="text-sm text-muted-foreground hover:text-foreground"
+                                    >
+                                        Search (Ctrl+K)
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Workspace with Tabs -->
+                        <div class="flex-1 overflow-hidden">
+                            <PatientWorkspace
+                                :patient="selectedPatient"
+                                :referral="selectedReferral"
+                                @state-change="handleStateChange"
+                                @ai-call="handleAICall"
+                            />
+                        </div>
+                    </template>
                     
                     <!-- Empty State -->
                     <div v-else class="flex-1 flex items-center justify-center text-muted-foreground">
@@ -248,6 +322,9 @@ onUnmounted(() => {
                             </svg>
                             <p class="text-lg font-medium">No Patient Selected</p>
                             <p class="text-sm">Select a patient from the queue to begin</p>
+                            <p class="text-xs mt-2 text-muted-foreground/60">
+                                Press <kbd class="px-1 py-0.5 bg-muted rounded text-xs">Ctrl+K</kbd> to search patients
+                            </p>
                         </div>
                     </div>
                 </div>
