@@ -5,6 +5,18 @@ namespace App\Services\Ai;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * OllamaClient - Custom Ollama API Client for HealthBridge
+ *
+ * This class provides a backward-compatible interface for Ollama API interactions
+ * while integrating with the Laravel AI SDK. It preserves clinical-specific features
+ * including PHI sanitization and FHIR-compliant output validation.
+ *
+ * @deprecated Use Laravel AI SDK agents instead.
+ *             This class will be removed in version 2.0.
+ * @see \App\Ai\Agents\ClinicalAgent
+ * @see https://laravel.com/docs/ai
+ */
 class OllamaClient
 {
     protected string $baseUrl;
@@ -13,9 +25,9 @@ class OllamaClient
 
     public function __construct()
     {
-        $this->baseUrl = config('ai_policy.ollama.base_url', 'http://localhost:11434');
-        $this->model = config('ai_policy.ollama.model', 'gemma3:4b');
-        $this->timeout = config('ai_policy.ollama.timeout', 60);
+        $this->baseUrl = config('ai.providers.ollama.url', config('ai_policy.ollama.base_url', 'http://localhost:11434'));
+        $this->model = config('ai.providers.ollama.model', config('ai_policy.ollama.model', 'gemma3:4b'));
+        $this->timeout = config('ai.providers.ollama.timeout', config('ai_policy.ollama.timeout', 60));
     }
 
     /**
@@ -162,6 +174,82 @@ class OllamaClient
                 'error' => $e->getMessage(),
             ]);
             return false;
+        }
+    }
+
+    // =================================================================
+    // Laravel AI SDK Integration Methods
+    // =================================================================
+
+    /**
+     * Get the configured provider name for Laravel AI SDK.
+     *
+     * @return string
+     */
+    public function getProviderName(): string
+    {
+        return 'ollama';
+    }
+
+    /**
+     * Get the configured model name.
+     *
+     * @return string
+     */
+    public function getModelName(): string
+    {
+        return $this->model;
+    }
+
+    /**
+     * Get the base URL for Ollama.
+     *
+     * @return string
+     */
+    public function getBaseUrl(): string
+    {
+        return $this->baseUrl;
+    }
+
+    /**
+     * Get SDK-compatible provider configuration.
+     *
+     * @return array
+     */
+    public function getSdkConfig(): array
+    {
+        return [
+            'driver' => 'ollama',
+            'key' => config('ai.providers.ollama.key', 'ollama'),
+            'url' => $this->baseUrl,
+            'model' => $this->model,
+            'timeout' => $this->timeout,
+        ];
+    }
+
+    /**
+     * Create a Laravel AI SDK text generation request.
+     *
+     * This method provides a bridge to the Laravel AI SDK while maintaining
+     * backward compatibility with existing code.
+     *
+     * @param string $prompt The prompt to send
+     * @param array $options Generation options
+     * @return \Laravel\Ai\Responses\TextResponse|null
+     */
+    public function generateWithSdk(string $prompt, array $options = []): ?object
+    {
+        try {
+            $response = \Laravel\Ai\Facades\Ai::text($prompt)
+                ->using('ollama', $options['model'] ?? $this->model)
+                ->generate();
+
+            return $response;
+        } catch (\Exception $e) {
+            Log::error('OllamaClient: SDK generation failed', [
+                'error' => $e->getMessage(),
+            ]);
+            return null;
         }
     }
 }

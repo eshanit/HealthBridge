@@ -47,7 +47,7 @@ class ClinicalSessionController extends Controller
     /**
      * Transition a session to a new state.
      */
-    public function transition(Request $request, string $couchId): JsonResponse
+    public function transition(Request $request, string $couchId)
     {
         $request->validate([
             'to_state' => 'required|string',
@@ -83,11 +83,8 @@ class ClinicalSessionController extends Controller
             $request->metadata ?? []
         );
 
-        return response()->json([
-            'message' => 'Session transitioned successfully.',
-            'session' => $session->fresh(['patient', 'referrals']),
-            'transition' => $transition->load('user'),
-        ]);
+        // Redirect back with success message (Inertia response)
+        return redirect()->back()->with('success', "Session transitioned to {$toState}.");
     }
 
     /**
@@ -153,10 +150,10 @@ class ClinicalSessionController extends Controller
     /**
      * Close a session.
      */
-    public function close(Request $request, string $couchId): JsonResponse
+    public function close(Request $request, string $couchId)
     {
         $request->validate([
-            'reason' => 'required|string|max:255',
+            'reason' => 'nullable|string|max:255',
             'outcome_notes' => 'nullable|string|max:5000',
             'follow_up_required' => 'nullable|boolean',
             'follow_up_date' => 'nullable|date|after:today',
@@ -176,22 +173,17 @@ class ClinicalSessionController extends Controller
 
             $transition = $this->stateMachine->closeSession(
                 $session,
-                $request->reason,
+                $request->reason ?? 'Session closed',
                 $metadata
             );
 
             // Update the session's completed_at timestamp
             $session->update(['completed_at' => now()]);
 
-            return response()->json([
-                'message' => 'Session closed successfully.',
-                'session' => $session->fresh(['patient', 'referrals']),
-                'transition' => $transition->load('user'),
-            ]);
+            // Redirect back with success message (Inertia response)
+            return redirect()->back()->with('success', 'Session closed successfully.');
         } catch (\InvalidArgumentException $e) {
-            return response()->json([
-                'message' => $e->getMessage(),
-            ], 422);
+            return redirect()->back()->withErrors(['message' => $e->getMessage()]);
         }
     }
 
@@ -250,17 +242,11 @@ class ClinicalSessionController extends Controller
     /**
      * Update the treatment plan for a session.
      */
-    public function updateTreatmentPlan(Request $request, string $couchId): JsonResponse
+    public function updateTreatmentPlan(Request $request, string $couchId)
     {
+        // Accept any JSON structure for treatment_plan - the frontend sends a complex nested object
         $request->validate([
             'treatment_plan' => 'required|array',
-            'treatment_plan.*.id' => 'required|string',
-            'treatment_plan.*.name' => 'required|string|max:255',
-            'treatment_plan.*.dose' => 'required|string|max:100',
-            'treatment_plan.*.route' => 'required|string|max:50',
-            'treatment_plan.*.frequency' => 'required|string|max:100',
-            'treatment_plan.*.duration' => 'required|string|max:100',
-            'treatment_plan.*.instructions' => 'nullable|string|max:500',
         ]);
 
         $session = ClinicalSession::where('couch_id', $couchId)->firstOrFail();
@@ -269,10 +255,8 @@ class ClinicalSessionController extends Controller
             'treatment_plan' => $request->treatment_plan,
         ]);
 
-        return response()->json([
-            'message' => 'Treatment plan updated successfully.',
-            'session' => $session->fresh(['patient', 'referrals']),
-        ]);
+        // Redirect back with success message (Inertia response)
+        return redirect()->back()->with('success', 'Treatment plan saved successfully.');
     }
 
     /**
@@ -289,7 +273,15 @@ class ClinicalSessionController extends Controller
             'referrals',
         ])
             ->where('couch_id', $couchId)
-            ->firstOrFail();
+            ->first();
+
+        // Return empty timeline if session not found
+        if (!$session) {
+            return response()->json([
+                'timeline' => [],
+                'message' => 'No session found for this patient.',
+            ]);
+        }
 
         $timeline = collect();
 

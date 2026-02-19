@@ -22,6 +22,7 @@ Route::middleware(['auth', 'verified', 'role:doctor|admin'])->prefix('gp')->name
     
     // My Cases (combined IN_GP_REVIEW and UNDER_TREATMENT)
     Route::get('/my-cases', [GPDashboardController::class, 'myCases'])->name('my-cases');
+    Route::get('/my-cases/json', [GPDashboardController::class, 'myCasesJson'])->name('my-cases.json');
     
     // Patient Management
     Route::prefix('patients')->name('patients.')->group(function () {

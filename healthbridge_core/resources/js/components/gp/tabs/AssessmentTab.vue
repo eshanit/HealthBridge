@@ -27,6 +27,7 @@ interface Patient {
 
 interface Props {
     patient: Patient;
+    readOnly?: boolean;
 }
 
 const props = defineProps<Props>();
@@ -134,6 +135,7 @@ const saveAssessment = async () => {
                     v-model="assessment.chief_complaint"
                     placeholder="Enter the main reason for the visit..."
                     rows="2"
+                    :disabled="readOnly"
                 />
             </CardContent>
         </Card>
@@ -150,6 +152,7 @@ const saveAssessment = async () => {
                         :key="symptom"
                         :variant="symptoms.includes(symptom) ? 'default' : 'outline'"
                         size="sm"
+                        :disabled="readOnly"
                         @click="toggleSymptom(symptom)"
                     >
                         {{ symptom }}
@@ -171,6 +174,7 @@ const saveAssessment = async () => {
                     v-model="assessment.history_present_illness"
                     placeholder="Describe the onset, duration, progression, and associated symptoms..."
                     rows="4"
+                    :disabled="readOnly"
                 />
             </CardContent>
         </Card>
@@ -189,6 +193,7 @@ const saveAssessment = async () => {
                             :key="finding"
                             :variant="examFindings.includes(finding) ? 'default' : 'outline'"
                             size="sm"
+                            :disabled="readOnly"
                             @click="toggleExamFinding(finding)"
                         >
                             {{ finding }}
@@ -201,6 +206,7 @@ const saveAssessment = async () => {
                         v-model="assessment.physical_exam"
                         placeholder="Enter detailed physical examination findings..."
                         rows="4"
+                        :disabled="readOnly"
                     />
                 </div>
             </CardContent>
@@ -218,6 +224,7 @@ const saveAssessment = async () => {
                         v-model="assessment.past_medical_history"
                         placeholder="Any previous illnesses, hospitalizations, surgeries..."
                         rows="2"
+                        :disabled="readOnly"
                     />
                 </div>
                 <div>
@@ -226,6 +233,7 @@ const saveAssessment = async () => {
                         v-model="assessment.allergies"
                         placeholder="Known allergies (medications, food, environmental)..."
                         rows="2"
+                        :disabled="readOnly"
                     />
                 </div>
                 <div>
@@ -234,6 +242,7 @@ const saveAssessment = async () => {
                         v-model="assessment.current_medications"
                         placeholder="Current medications and dosages..."
                         rows="2"
+                        :disabled="readOnly"
                     />
                 </div>
             </CardContent>
@@ -249,12 +258,13 @@ const saveAssessment = async () => {
                     v-model="assessment.assessment_notes"
                     placeholder="Clinical impression, differential diagnosis, working diagnosis..."
                     rows="4"
+                    :disabled="readOnly"
                 />
             </CardContent>
         </Card>
 
         <!-- Save Button -->
-        <div class="flex justify-end gap-2">
+        <div v-if="!readOnly" class="flex justify-end gap-2">
             <Button variant="outline">
                 Save Draft
             </Button>

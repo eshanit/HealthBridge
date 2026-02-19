@@ -16,10 +16,19 @@ return Application::configure(basePath: dirname(__DIR__))
         web: __DIR__.'/../routes/web.php',
         api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
+        channels: __DIR__.'/../routes/channels.php',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
+
+        // Exclude AI API routes from CSRF verification (they use their own auth)
+        // Also exclude GP referral action routes for AJAX calls
+        $middleware->validateCsrfTokens(except: [
+            'api/ai/*',
+            'gp/referrals/*/accept',
+            'gp/referrals/*/reject',
+        ]);
 
         $middleware->web(append: [
             HandleAppearance::class,

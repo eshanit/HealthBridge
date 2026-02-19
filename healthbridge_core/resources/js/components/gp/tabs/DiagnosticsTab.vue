@@ -27,6 +27,7 @@ interface Patient {
 
 interface Props {
     patient: Patient;
+    readOnly?: boolean;
 }
 
 const props = defineProps<Props>();
@@ -142,6 +143,7 @@ const submitOrders = async () => {
                         :variant="(labOrders as Record<string, boolean | string>)[test.id] ? 'default' : 'outline'"
                         size="sm"
                         class="justify-start"
+                        :disabled="readOnly"
                         @click="toggleLabOrder(test.id)"
                     >
                         <span v-if="test.urgent" class="text-red-500 mr-1">⚠️</span>
@@ -154,6 +156,7 @@ const submitOrders = async () => {
                         v-model="labOrders.other"
                         placeholder="Specify other lab tests..."
                         rows="2"
+                        :disabled="readOnly"
                     />
                 </div>
             </CardContent>
@@ -172,6 +175,7 @@ const submitOrders = async () => {
                         :variant="(imagingOrders as Record<string, boolean | string>)[imaging.id] ? 'default' : 'outline'"
                         size="sm"
                         class="justify-start"
+                        :disabled="readOnly"
                         @click="toggleImagingOrder(imaging.id)"
                     >
                         <span v-if="imaging.urgent" class="text-red-500 mr-1">⚠️</span>
@@ -184,6 +188,7 @@ const submitOrders = async () => {
                         v-model="imagingOrders.other"
                         placeholder="Specify other imaging..."
                         rows="2"
+                        :disabled="readOnly"
                     />
                 </div>
             </CardContent>
@@ -243,12 +248,13 @@ const submitOrders = async () => {
                     v-model="specialistNotes"
                     placeholder="Notes from specialist consultations..."
                     rows="4"
+                    :disabled="readOnly"
                 />
             </CardContent>
         </Card>
 
         <!-- Submit Orders Button -->
-        <div class="flex justify-end gap-2">
+        <div v-if="!readOnly" class="flex justify-end gap-2">
             <Button variant="outline">
                 View Pending Orders
             </Button>

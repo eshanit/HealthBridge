@@ -59,7 +59,7 @@ Route::prefix('auth')->group(function () {
     });
 });
 
-// AI Gateway Routes
+// AI Gateway Routes - support both session (web) and token (sanctum) authentication
 Route::middleware(['auth:sanctum', 'ai.guard', 'throttle:ai'])->prefix('ai')->group(function () {
     // Main AI completion endpoint
     Route::post('/medgemma', MedGemmaController::class);
@@ -69,6 +69,15 @@ Route::middleware(['auth:sanctum', 'ai.guard', 'throttle:ai'])->prefix('ai')->gr
     
     // Get available tasks for current user
     Route::get('/tasks', [MedGemmaController::class, 'tasks']);
+    
+    // Streaming endpoint for real-time AI responses (SSE)
+    Route::match(['GET', 'POST'], '/stream', [MedGemmaController::class, 'stream']);
+    
+    // Structured output endpoint with JSON schema validation
+    Route::post('/structured', [MedGemmaController::class, 'structured']);
+    
+    // Monitoring dashboard endpoint (Phase 4)
+    Route::get('/monitoring', [MedGemmaController::class, 'monitoring']);
 });
 
 /*

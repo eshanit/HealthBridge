@@ -20,6 +20,7 @@ interface Patient {
 
 interface Referral {
     id: number;
+    couch_id: string; // Session's couch_id - used for accept/reject endpoints
     patient: Patient;
     referred_by: string;
     referral_notes: string;
@@ -30,6 +31,9 @@ interface Props {
     highPriorityReferrals: Referral[];
     normalReferrals: Referral[];
     selectedPatientId: string | null;
+    actionInProgress?: number | null;
+    acceptedReferralIds?: Set<string>;
+    isMyCases?: boolean;
 }
 
 const props = defineProps<Props>();
@@ -73,9 +77,11 @@ const getTriageIcon = (color: string): string => {
     <div class="flex flex-col h-full overflow-hidden">
         <!-- Header -->
         <div class="p-4 border-b border-sidebar-border/70">
-            <h2 class="text-lg font-semibold text-sidebar-foreground">Patient Queue</h2>
+            <h2 class="text-lg font-semibold text-sidebar-foreground">
+                {{ isMyCases ? 'My Cases' : 'Patient Queue' }}
+            </h2>
             <p class="text-sm text-sidebar-foreground/60">
-                {{ highPriorityReferrals.length + normalReferrals.length }} patients waiting
+                {{ highPriorityReferrals.length + normalReferrals.length }} {{ isMyCases ? 'active cases' : 'patients waiting' }}
             </p>
         </div>
 
@@ -114,14 +120,14 @@ const getTriageIcon = (color: string): string => {
                                         {{ referral.patient.age ?? '-' }}y • {{ referral.patient.gender ?? '-' }}
                                     </div>
                                     <div class="text-xs text-muted-foreground mt-1">
-                                        Referred by: {{ referral.referred_by }}
+                                        {{ isMyCases ? 'In Review' : 'Referred by: ' + referral.referred_by }}
                                     </div>
                                 </div>
                                 <div class="text-right shrink-0 ml-2">
                                     <div class="text-sm font-medium text-red-600 dark:text-red-400">
                                         {{ formatWaitingTime(referral.patient.waiting_minutes) }}
                                     </div>
-                                    <div class="text-xs text-muted-foreground">waiting</div>
+                                    <div class="text-xs text-muted-foreground">{{ isMyCases ? 'active' : 'waiting' }}</div>
                                 </div>
                             </div>
                             
@@ -144,23 +150,37 @@ const getTriageIcon = (color: string): string => {
                                 </div>
                             </div>
 
-                            <!-- Action Buttons -->
-                            <div class="flex gap-2 mt-3">
+                            <!-- Action Buttons - Only show for referrals, not my-cases -->
+                            <div v-if="!isMyCases && !acceptedReferralIds?.has(referral.couch_id)" class="flex gap-2 mt-3">
                                 <Button
                                     size="sm"
                                     variant="default"
                                     class="flex-1"
+                                    :disabled="actionInProgress === referral.id"
                                     @click.stop="emit('accept', referral.id)"
                                 >
-                                    Accept
+                                    <span v-if="actionInProgress === referral.id" class="animate-spin mr-1">⏳</span>
+                                    {{ actionInProgress === referral.id ? 'Accepting...' : 'Accept' }}
                                 </Button>
                                 <Button
                                     size="sm"
                                     variant="outline"
+                                    :disabled="actionInProgress === referral.id"
                                     @click.stop="emit('reject', referral.id)"
                                 >
                                     Reject
                                 </Button>
+                            </div>
+                            <!-- Accepted indicator -->
+                            <div v-else-if="!isMyCases && acceptedReferralIds?.has(referral.couch_id)" class="flex items-center justify-center gap-2 mt-3 text-sm text-green-600 dark:text-green-400">
+                                <span>✓</span>
+                                <span>Accepted</span>
+                            </div>
+                            <!-- My Cases status indicator -->
+                            <div v-else-if="isMyCases" class="flex items-center gap-2 mt-3 text-sm text-green-600 dark:text-green-400">
+                                <span class="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 rounded text-xs">
+                                    In Review
+                                </span>
                             </div>
                         </CardContent>
                     </Card>
@@ -200,34 +220,48 @@ const getTriageIcon = (color: string): string => {
                                         {{ referral.patient.age ?? '-' }}y • {{ referral.patient.gender ?? '-' }}
                                     </div>
                                     <div class="text-xs text-muted-foreground mt-1">
-                                        Referred by: {{ referral.referred_by }}
+                                        {{ isMyCases ? 'In Review' : 'Referred by: ' + referral.referred_by }}
                                     </div>
                                 </div>
                                 <div class="text-right shrink-0 ml-2">
                                     <div class="text-sm font-medium">
                                         {{ formatWaitingTime(referral.patient.waiting_minutes) }}
                                     </div>
-                                    <div class="text-xs text-muted-foreground">waiting</div>
+                                    <div class="text-xs text-muted-foreground">{{ isMyCases ? 'active' : 'waiting' }}</div>
                                 </div>
                             </div>
 
-                            <!-- Action Buttons -->
-                            <div class="flex gap-2 mt-3">
+                            <!-- Action Buttons - Only show for referrals, not my-cases -->
+                            <div v-if="!isMyCases && !acceptedReferralIds?.has(referral.couch_id)" class="flex gap-2 mt-3">
                                 <Button
                                     size="sm"
                                     variant="default"
                                     class="flex-1"
+                                    :disabled="actionInProgress === referral.id"
                                     @click.stop="emit('accept', referral.id)"
                                 >
-                                    Accept
+                                    <span v-if="actionInProgress === referral.id" class="animate-spin mr-1">⏳</span>
+                                    {{ actionInProgress === referral.id ? 'Accepting...' : 'Accept' }}
                                 </Button>
                                 <Button
                                     size="sm"
                                     variant="outline"
+                                    :disabled="actionInProgress === referral.id"
                                     @click.stop="emit('reject', referral.id)"
                                 >
                                     Reject
                                 </Button>
+                            </div>
+                            <!-- Accepted indicator -->
+                            <div v-else-if="!isMyCases && acceptedReferralIds?.has(referral.couch_id)" class="flex items-center justify-center gap-2 mt-3 text-sm text-green-600 dark:text-green-400">
+                                <span>✓</span>
+                                <span>Accepted</span>
+                            </div>
+                            <!-- My Cases status indicator -->
+                            <div v-else-if="isMyCases" class="flex items-center gap-2 mt-3 text-sm text-green-600 dark:text-green-400">
+                                <span class="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 rounded text-xs">
+                                    In Review
+                                </span>
                             </div>
                         </CardContent>
                     </Card>
@@ -242,12 +276,12 @@ const getTriageIcon = (color: string): string => {
                 <svg class="h-12 w-12 mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
-                <p class="text-sm">No patients in queue</p>
+                <p class="text-sm">{{ isMyCases ? 'No active cases' : 'No patients in queue' }}</p>
             </div>
         </div>
 
-        <!-- New Walk-ins Section -->
-        <div class="p-2 border-t border-sidebar-border/70">
+        <!-- New Walk-ins Section - Only show for referrals tab -->
+        <div v-if="!isMyCases" class="p-2 border-t border-sidebar-border/70">
             <Button variant="outline" class="w-full" as-child>
                 <a href="/patients/new">
                     <svg class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">

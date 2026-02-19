@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -74,6 +74,17 @@ const selectedTask = ref<string | null>(null);
 const isLoading = ref(false);
 const aiResponse = ref<string | null>(null);
 const aiError = ref<string | null>(null);
+
+// Watch for patient changes and reset state
+watch(() => props.patient.id, (newPatientId, oldPatientId) => {
+    if (oldPatientId && newPatientId !== oldPatientId) {
+        // Reset state when patient changes
+        selectedTask.value = null;
+        aiResponse.value = null;
+        aiError.value = null;
+        isLoading.value = false;
+    }
+});
 
 // Computed
 const availableTasks = computed(() => {

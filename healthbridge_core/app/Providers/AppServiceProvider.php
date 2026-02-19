@@ -4,6 +4,14 @@ namespace App\Providers;
 
 use App\Models\ClinicalSession;
 use App\Observers\ClinicalSessionObserver;
+use App\Services\Ai\AiCacheService;
+use App\Services\Ai\AiErrorHandler;
+use App\Services\Ai\AiMonitor;
+use App\Services\Ai\AiRateLimiter;
+use App\Services\Ai\ContextBuilder;
+use App\Services\Ai\OutputValidator;
+use App\Services\Ai\OllamaClient;
+use App\Services\Ai\PromptBuilder;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +28,68 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->registerAiServices();
+    }
+
+    /**
+     * Register AI-related services.
+     *
+     * This method sets up the service container bindings for the AI integration.
+     * Services are registered as singletons to ensure consistent state across
+     * the application while maintaining backward compatibility.
+     */
+    protected function registerAiServices(): void
+    {
+        // Register OllamaClient as a singleton for backward compatibility
+        $this->app->singleton(OllamaClient::class, function ($app) {
+            return new OllamaClient();
+        });
+
+        // Register PromptBuilder for database-stored prompt templates
+        $this->app->singleton(PromptBuilder::class, function ($app) {
+            return new PromptBuilder();
+        });
+
+        // Register ContextBuilder for clinical data aggregation
+        $this->app->singleton(ContextBuilder::class, function ($app) {
+            return new ContextBuilder();
+        });
+
+        // Register OutputValidator for clinical safety validation
+        $this->app->singleton(OutputValidator::class, function ($app) {
+            return new OutputValidator();
+        });
+
+        // Register Phase 4 services
+        // AiCacheService - Intelligent caching for AI responses
+        $this->app->singleton(AiCacheService::class, function ($app) {
+            return new AiCacheService();
+        });
+
+        // AiErrorHandler - Comprehensive error handling with recovery strategies
+        $this->app->singleton(AiErrorHandler::class, function ($app) {
+            return new AiErrorHandler();
+        });
+
+        // AiRateLimiter - Sophisticated rate limiting for AI requests
+        $this->app->singleton(AiRateLimiter::class, function ($app) {
+            return new AiRateLimiter();
+        });
+
+        // AiMonitor - Monitoring, metrics collection, and alerting
+        $this->app->singleton(AiMonitor::class, function ($app) {
+            return new AiMonitor();
+        });
+
+        // Register aliases for easier injection
+        $this->app->alias(OllamaClient::class, 'ai.ollama');
+        $this->app->alias(PromptBuilder::class, 'ai.prompt-builder');
+        $this->app->alias(ContextBuilder::class, 'ai.context-builder');
+        $this->app->alias(OutputValidator::class, 'ai.output-validator');
+        $this->app->alias(AiCacheService::class, 'ai.cache');
+        $this->app->alias(AiErrorHandler::class, 'ai.error-handler');
+        $this->app->alias(AiRateLimiter::class, 'ai.rate-limiter');
+        $this->app->alias(AiMonitor::class, 'ai.monitor');
     }
 
     /**

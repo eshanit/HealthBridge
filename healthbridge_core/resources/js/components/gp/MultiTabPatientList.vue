@@ -22,6 +22,7 @@ interface PatientSummary {
 
 interface Referral {
     id: number;
+    couch_id: string; // Session's couch_id - used for accept/reject endpoints
     patient: PatientSummary;
     referred_by: string;
     referral_notes: string;

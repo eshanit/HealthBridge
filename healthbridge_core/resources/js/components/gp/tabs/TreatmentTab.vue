@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue';
+import { router } from '@inertiajs/vue3';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -29,6 +30,8 @@ interface Patient {
 
 interface Props {
     patient: Patient;
+    readOnly?: boolean;
+    sessionCouchId?: string; // The clinical session's CouchDB ID
 }
 
 const props = defineProps<Props>();
@@ -106,24 +109,23 @@ const removeFluid = (index: number) => {
 const saveTreatment = async () => {
     isSaving.value = true;
     
-    try {
-        const response = await fetch(`/sessions/${props.patient.id}/treatment`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+    // Use Inertia router which automatically handles CSRF tokens and redirects
+    router.put(
+        `/gp/sessions/${props.sessionCouchId || props.patient.id}/treatment-plan`,
+        { treatment_plan: treatment },
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                console.log('Treatment saved successfully');
             },
-            body: JSON.stringify(treatment),
-        });
-        
-        if (response.ok) {
-            console.log('Treatment saved successfully');
+            onError: (errors: Record<string, string>) => {
+                console.error('Failed to save treatment:', errors);
+            },
+            onFinish: () => {
+                isSaving.value = false;
+            },
         }
-    } catch (error) {
-        console.error('Failed to save treatment:', error);
-    } finally {
-        isSaving.value = false;
-    }
+    );
 };
 </script>
 
@@ -147,6 +149,7 @@ const saveTreatment = async () => {
                             :key="med.name"
                             variant="outline"
                             size="sm"
+                            :disabled="readOnly"
                             @click="addMedication(med)"
                         >
                             {{ med.name }}
@@ -169,7 +172,7 @@ const saveTreatment = async () => {
                                 <span v-if="med.duration">| {{ med.duration }}</span>
                             </div>
                         </div>
-                        <Button variant="ghost" size="sm" @click="removeMedication(index)">
+                        <Button v-if="!readOnly" variant="ghost" size="sm" @click="removeMedication(index)">
                             <svg class="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                             </svg>
@@ -178,7 +181,7 @@ const saveTreatment = async () => {
                 </div>
 
                 <!-- Add Custom Medication -->
-                <div class="grid grid-cols-5 gap-2">
+                <div v-if="!readOnly" class="grid grid-cols-5 gap-2">
                     <Input v-model="treatment.newMedication.name" placeholder="Medication" />
                     <Input v-model="treatment.newMedication.dose" placeholder="Dose" />
                     <select
@@ -213,14 +216,14 @@ const saveTreatment = async () => {
                             <span class="font-medium">{{ fluid.type }}</span>
                             <span class="text-muted-foreground ml-2">{{ fluid.volume }} @ {{ fluid.rate }}</span>
                         </div>
-                        <Button variant="ghost" size="sm" @click="removeFluid(index)">
+                        <Button v-if="!readOnly" variant="ghost" size="sm" @click="removeFluid(index)">
                             <svg class="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                             </svg>
                         </Button>
                     </div>
                 </div>
-                <div class="grid grid-cols-4 gap-2">
+                <div v-if="!readOnly" class="grid grid-cols-4 gap-2">
                     <Input v-model="treatment.newFluid.type" placeholder="Fluid Type" />
                     <Input v-model="treatment.newFluid.volume" placeholder="Volume" />
                     <Input v-model="treatment.newFluid.rate" placeholder="Rate" />
@@ -241,6 +244,7 @@ const saveTreatment = async () => {
                 <div class="flex items-center gap-4 mb-4">
                     <Button
                         :variant="treatment.oxygenRequired ? 'default' : 'outline'"
+                        :disabled="readOnly"
                         @click="treatment.oxygenRequired = !treatment.oxygenRequired"
                     >
                         {{ treatment.oxygenRequired ? 'Oxygen Required' : 'No Oxygen Required' }}
@@ -252,6 +256,7 @@ const saveTreatment = async () => {
                         <select
                             v-model="treatment.oxygenType"
                             class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+                            :disabled="readOnly"
                         >
                             <option value="">Select...</option>
                             <option value="nasal_cannula">Nasal Cannula</option>
@@ -262,7 +267,7 @@ const saveTreatment = async () => {
                     </div>
                     <div>
                         <Label>Flow Rate (L/min)</Label>
-                        <Input v-model="treatment.oxygenFlow" placeholder="e.g., 2-4" />
+                        <Input v-model="treatment.oxygenFlow" placeholder="e.g., 2-4" :disabled="readOnly" />
                     </div>
                 </div>
             </CardContent>
@@ -277,18 +282,21 @@ const saveTreatment = async () => {
                 <div class="flex gap-2 mb-4">
                     <Button
                         :variant="treatment.disposition === 'admit' ? 'default' : 'outline'"
+                        :disabled="readOnly"
                         @click="treatment.disposition = 'admit'"
                     >
                         Admit
                     </Button>
                     <Button
                         :variant="treatment.disposition === 'discharge' ? 'default' : 'outline'"
+                        :disabled="readOnly"
                         @click="treatment.disposition = 'discharge'"
                     >
                         Discharge
                     </Button>
                     <Button
                         :variant="treatment.disposition === 'refer' ? 'default' : 'outline'"
+                        :disabled="readOnly"
                         @click="treatment.disposition = 'refer'"
                     >
                         Refer
@@ -301,6 +309,7 @@ const saveTreatment = async () => {
                     <select
                         v-model="treatment.admissionWard"
                         class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+                        :disabled="readOnly"
                     >
                         <option value="">Select ward...</option>
                         <option value="pediatric">Pediatric Ward</option>
@@ -313,23 +322,23 @@ const saveTreatment = async () => {
                 <!-- Referral Details -->
                 <div v-if="treatment.disposition === 'refer'" class="space-y-2">
                     <Label>Referral Facility</Label>
-                    <Input v-model="treatment.referralFacility" placeholder="Hospital/Facility name" />
+                    <Input v-model="treatment.referralFacility" placeholder="Hospital/Facility name" :disabled="readOnly" />
                     <Label>Referral Reason</Label>
-                    <Textarea v-model="treatment.referralReason" rows="2" placeholder="Reason for referral..." />
+                    <Textarea v-model="treatment.referralReason" rows="2" placeholder="Reason for referral..." :disabled="readOnly" />
                 </div>
 
                 <!-- Discharge Instructions -->
                 <div v-if="treatment.disposition === 'discharge'" class="space-y-2">
                     <Label>Follow-up Instructions</Label>
-                    <Textarea v-model="treatment.followUpInstructions" rows="2" placeholder="Follow-up instructions..." />
+                    <Textarea v-model="treatment.followUpInstructions" rows="2" placeholder="Follow-up instructions..." :disabled="readOnly" />
                     <Label>Return Precautions</Label>
-                    <Textarea v-model="treatment.returnPrecautions" rows="2" placeholder="When to return..." />
+                    <Textarea v-model="treatment.returnPrecautions" rows="2" placeholder="When to return..." :disabled="readOnly" />
                 </div>
             </CardContent>
         </Card>
 
         <!-- Save Button -->
-        <div class="flex justify-end gap-2">
+        <div v-if="!readOnly" class="flex justify-end gap-2">
             <Button variant="outline">
                 Save Draft
             </Button>

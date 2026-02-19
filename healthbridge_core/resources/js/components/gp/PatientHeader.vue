@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { router } from '@inertiajs/vue3';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -26,6 +27,7 @@ interface Patient {
 
 interface Referral {
     id: number;
+    couch_id: string; // Session's couch_id - used for accept/reject endpoints
     patient: Patient;
     referred_by: string;
     referral_notes: string;
@@ -36,6 +38,7 @@ interface Props {
     patient: Patient;
     referral: Referral | null;
     triageLabel: string;
+    isAccepted?: boolean; // Whether the referral has been accepted
 }
 
 const props = defineProps<Props>();
@@ -98,52 +101,59 @@ const executeAction = async (action: string) => {
     isTransitioning.value = true;
     showConfirmDialog.value = false;
     
-    try {
-        let endpoint = '';
-        let newState = '';
-        
-        switch (action) {
-            case 'accept':
-                endpoint = `/gp/referrals/${props.referral?.id}/accept`;
-                newState = 'IN_GP_REVIEW';
-                break;
-            case 'start_consultation':
-                endpoint = `/sessions/${props.patient.id}/transition`;
-                newState = 'UNDER_TREATMENT';
-                break;
-            case 'discharge':
-                endpoint = `/sessions/${props.patient.id}/close`;
-                newState = 'CLOSED';
-                break;
-            case 'refer_again':
-                endpoint = `/sessions/${props.patient.id}/transition`;
-                newState = 'REFERRED';
-                break;
-            case 'close':
-                endpoint = `/sessions/${props.patient.id}/close`;
-                newState = 'CLOSED';
-                break;
-        }
-        
-        if (endpoint) {
-            const response = await fetch(endpoint, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+    // Get the session's couch_id from the referral
+    const sessionCouchId = props.referral?.couch_id;
+    
+    // Debug log
+    console.log('executeAction:', action, 'sessionCouchId:', sessionCouchId, 'referral:', props.referral);
+    
+    let endpoint = '';
+    let newState = '';
+    
+    switch (action) {
+        case 'accept':
+            // Use couch_id for the accept endpoint
+            endpoint = `/gp/referrals/${sessionCouchId}/accept`;
+            newState = 'IN_GP_REVIEW';
+            break;
+        case 'start_consultation':
+            // Transition from IN_GP_REVIEW to UNDER_TREATMENT
+            endpoint = `/gp/sessions/${sessionCouchId}/transition`;
+            newState = 'UNDER_TREATMENT';
+            break;
+        case 'discharge':
+            endpoint = `/gp/sessions/${sessionCouchId}/close`;
+            newState = 'CLOSED';
+            break;
+        case 'refer_again':
+            endpoint = `/gp/sessions/${sessionCouchId}/transition`;
+            newState = 'REFERRED';
+            break;
+        case 'close':
+            endpoint = `/gp/sessions/${sessionCouchId}/close`;
+            newState = 'CLOSED';
+            break;
+    }
+    
+    if (endpoint) {
+        // Use Inertia router which automatically handles CSRF tokens and redirects
+        router.post(
+            endpoint,
+            { to_state: newState },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    emit('stateChange', newState);
                 },
-                body: JSON.stringify({ new_state: newState }),
-            });
-            
-            if (response.ok) {
-                emit('stateChange', newState);
+                onError: (errors: Record<string, string>) => {
+                    console.error('Action failed:', errors);
+                },
+                onFinish: () => {
+                    isTransitioning.value = false;
+                    pendingAction.value = null;
+                },
             }
-        }
-    } catch (error) {
-        console.error('Action failed:', error);
-    } finally {
-        isTransitioning.value = false;
-        pendingAction.value = null;
+        );
     }
 };
 
@@ -207,14 +217,24 @@ const formatGender = (gender: string | null | undefined): string => {
 
                 <!-- Action Buttons -->
                 <div class="flex items-center gap-2">
+                    <!-- Accept Referral Button - Only show if not already accepted -->
                     <Button
-                        v-if="patient.status === 'REFERRED'"
+                        v-if="patient.status === 'REFERRED' && !isAccepted"
                         variant="default"
                         :disabled="isTransitioning"
                         @click="handleAction('accept')"
                     >
                         Accept Referral
                     </Button>
+                    
+                    <!-- Accepted indicator -->
+                    <div
+                        v-if="patient.status === 'REFERRED' && isAccepted"
+                        class="flex items-center gap-2 px-3 py-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-md"
+                    >
+                        <span>✓</span>
+                        <span class="font-medium">Accepted</span>
+                    </div>
                     
                     <Button
                         v-if="patient.status === 'IN_GP_REVIEW'"

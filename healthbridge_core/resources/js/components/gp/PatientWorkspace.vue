@@ -26,7 +26,7 @@ interface Patient {
 
 interface Referral {
     id: number;
-    couch_id?: string;
+    couch_id: string; // Session's couch_id - used for accept/reject endpoints
     patient: Patient;
     referred_by: string;
     referral_notes: string;
@@ -47,6 +47,7 @@ interface Referral {
 interface Props {
     patient: Patient;
     referral: Referral | null;
+    isAccepted?: boolean; // Whether the referral has been accepted - enables editing and AI features
 }
 
 const props = defineProps<Props>();
@@ -56,10 +57,25 @@ const emit = defineEmits<{
     (e: 'aiCall', task: string): void;
 }>();
 
+// AI Explanation type
+interface AIExplanation {
+    error?: string;
+    message?: string;
+    status?: number;
+    detail?: string;
+}
+
 // State
 const activeTab = ref('summary');
 const showAIPanel = ref(true);
-const aiExplanation = ref<string | null>(null);
+const aiExplanation = ref<string | AIExplanation | null>(null);
+const isAILoading = ref(false);
+
+// Reset AI state when patient changes
+const resetAIState = () => {
+    aiExplanation.value = null;
+    isAILoading.value = false;
+};
 
 // Computed
 const triageLabel = computed(() => {
@@ -97,6 +113,10 @@ const handleStateChange = (newState: string) => {
 const handleAITask = async (task: string) => {
     emit('aiCall', task);
     
+    // Set loading state
+    isAILoading.value = true;
+    aiExplanation.value = null;
+    
     // Call AI API
     try {
         const response = await fetch('/api/ai/medgemma', {
@@ -104,6 +124,7 @@ const handleAITask = async (task: string) => {
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                'Accept': 'application/json',
             },
             body: JSON.stringify({
                 task,
@@ -116,12 +137,38 @@ const handleAITask = async (task: string) => {
             }),
         });
         
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('Non-JSON response:', text.substring(0, 500));
+            aiExplanation.value = {
+                error: 'Server returned non-JSON response',
+                status: response.status,
+                detail: text.substring(0, 200),
+            };
+            return;
+        }
+        
+        const data = await response.json();
+        
         if (response.ok) {
-            const data = await response.json();
-            aiExplanation.value = data.output || data.explanation || null;
+            aiExplanation.value = data.response || data.output || data.explanation || null;
+        } else {
+            console.error('AI request failed:', data);
+            aiExplanation.value = {
+                error: data.error || 'AI request failed',
+                message: data.message || data.detail || 'Unknown error',
+            };
         }
     } catch (error) {
         console.error('AI call failed:', error);
+        aiExplanation.value = {
+            error: 'Network or parsing error',
+            detail: error instanceof Error ? error.message : String(error),
+        };
+    } finally {
+        isAILoading.value = false;
     }
 };
 
@@ -132,11 +179,23 @@ const toggleAIPanel = () => {
 
 <template>
     <div class="flex flex-col h-full overflow-hidden">
+        <!-- View-Only Mode Banner -->
+        <div v-if="!isAccepted" class="bg-amber-100 dark:bg-amber-900/30 border-b border-amber-300 dark:border-amber-700 px-4 py-2">
+            <div class="flex items-center gap-2 text-amber-800 dark:text-amber-200">
+                <span class="text-lg">🔒</span>
+                <div>
+                    <span class="font-medium">View-Only Mode:</span>
+                    <span class="ml-1">Accept the referral to enable editing and AI features.</span>
+                </div>
+            </div>
+        </div>
+
         <!-- Patient Header -->
         <PatientHeader
             :patient="patient"
             :referral="referral"
             :triage-label="triageLabel"
+            :is-accepted="isAccepted"
             @state-change="handleStateChange"
         />
 
@@ -151,22 +210,38 @@ const toggleAIPanel = () => {
                     :medical-history="medicalHistory"
                     :current-medications="currentMedications"
                     :allergies="allergies"
+                    :read-only="!isAccepted"
+                    :session-couch-id="referral?.couch_id"
                     @update:active-tab="activeTab = $event"
                     @ai-task="handleAITask"
                 />
             </div>
 
-            <!-- AI Explainability Panel (Right Sidebar) -->
+            <!-- AI Explainability Panel (Right Sidebar) - Only show when accepted -->
             <div
-                v-if="showAIPanel"
+                v-if="showAIPanel && isAccepted"
                 class="w-80 border-l border-sidebar-border/70 bg-sidebar/50 overflow-hidden"
             >
                 <AIExplainabilityPanel
                     :patient="patient"
                     :explanation="aiExplanation"
+                    :is-loading="isAILoading"
                     @close="toggleAIPanel"
                     @request-explanation="handleAITask('explain_triage')"
+                    @reset="resetAIState"
                 />
+            </div>
+            
+            <!-- AI Disabled Panel (when not accepted) -->
+            <div
+                v-if="showAIPanel && !isAccepted"
+                class="w-80 border-l border-sidebar-border/70 bg-sidebar/50 overflow-hidden flex items-center justify-center"
+            >
+                <div class="text-center p-4 text-muted-foreground">
+                    <span class="text-4xl">🔒</span>
+                    <p class="mt-2 font-medium">AI Features Disabled</p>
+                    <p class="text-sm mt-1">Accept the referral to enable AI assistance.</p>
+                </div>
             </div>
         </div>
 

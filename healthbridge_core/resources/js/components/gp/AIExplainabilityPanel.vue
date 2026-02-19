@@ -24,9 +24,18 @@ interface Patient {
     };
 }
 
+// AI Explanation type - can be a string or an error object
+interface AIExplanation {
+    error?: string;
+    message?: string;
+    status?: number;
+    detail?: string;
+}
+
 interface Props {
     patient: Patient;
-    explanation: string | null;
+    explanation: string | AIExplanation | null;
+    isLoading?: boolean;
 }
 
 const props = defineProps<Props>();
@@ -34,15 +43,56 @@ const props = defineProps<Props>();
 const emit = defineEmits<{
     (e: 'close'): void;
     (e: 'requestExplanation'): void;
+    (e: 'reset'): void;
 }>();
 
 // State
-const isLoading = ref(false);
 const activeSection = ref<'why' | 'missing' | 'risks' | 'next'>('why');
+
+// Watch for patient changes and reset state
+watch(() => props.patient.id, (newPatientId, oldPatientId) => {
+    if (oldPatientId && newPatientId !== oldPatientId) {
+        // Reset state when patient changes
+        activeSection.value = 'why';
+        emit('reset');
+    }
+});
+
+// Check if explanation is an error object
+const isErrorObject = computed(() => {
+    return typeof props.explanation === 'object' && props.explanation !== null;
+});
+
+// Get error message if explanation is an error object
+const errorMessage = computed(() => {
+    if (isErrorObject.value && props.explanation) {
+        const err = props.explanation as AIExplanation;
+        return err.error || err.message || 'An error occurred';
+    }
+    return null;
+});
+
+// Get error detail if explanation is an error object
+const errorDetail = computed(() => {
+    if (isErrorObject.value && props.explanation) {
+        const err = props.explanation as AIExplanation;
+        return err.detail;
+    }
+    return null;
+});
+
+// Get string explanation
+const explanationString = computed(() => {
+    if (typeof props.explanation === 'string') {
+        return props.explanation;
+    }
+    return null;
+});
 
 // Computed sections from explanation
 const parsedExplanation = computed(() => {
-    if (!props.explanation) return null;
+    const text = explanationString.value;
+    if (!text) return null;
     
     // Try to parse structured explanation
     const sections = {
@@ -52,38 +102,65 @@ const parsedExplanation = computed(() => {
         next: '',
     };
     
-    // Simple parsing - look for section headers
-    const lines = props.explanation.split('\n');
+    // Parse based on actual section headers from the AI response
+    // The AI uses numbered headers like: **1. Clinical Interpretation:**
+    const lines = text.split('\n');
     let currentSection: keyof typeof sections | null = null;
     
     for (const line of lines) {
-        const lowerLine = line.toLowerCase();
+        const trimmedLine = line.trim();
         
-        if (lowerLine.includes('why') || lowerLine.includes('reason') || lowerLine.includes('classification')) {
-            currentSection = 'why';
-            continue;
-        }
-        if (lowerLine.includes('missing') || lowerLine.includes('data not') || lowerLine.includes('unknown')) {
-            currentSection = 'missing';
-            continue;
-        }
-        if (lowerLine.includes('risk') || lowerLine.includes('danger') || lowerLine.includes('warning')) {
-            currentSection = 'risks';
-            continue;
-        }
-        if (lowerLine.includes('next') || lowerLine.includes('recommend') || lowerLine.includes('suggest')) {
-            currentSection = 'next';
-            continue;
+        // Only match lines that look like section headers:
+        // - Start with **N. (numbered bold)
+        // - Are relatively short (< 100 chars for a header)
+        // - Contain specific section keywords
+        
+        if (trimmedLine.startsWith('**') && trimmedLine.length < 100) {
+            const lowerLine = trimmedLine.toLowerCase();
+            
+            // WHY section: Clinical Interpretation, Triage Rationale, Differential Diagnoses
+            if (lowerLine.includes('clinical interpretation') || 
+                lowerLine.includes('triage rationale') ||
+                lowerLine.includes('differential')) {
+                currentSection = 'why';
+                continue; // Skip the header line itself
+            }
+            
+            // MISSING section: Missing data, data gaps, unknown information
+            if (lowerLine.includes('missing') || 
+                lowerLine.includes('data gaps') ||
+                lowerLine.includes('data not available')) {
+                currentSection = 'missing';
+                continue;
+            }
+            
+            // RISKS section: Red Flags, Warning signs
+            if (lowerLine.includes('red flag') || 
+                lowerLine.includes('warning') ||
+                lowerLine.includes('risk factor')) {
+                currentSection = 'risks';
+                continue;
+            }
+            
+            // NEXT section: Immediate Actions, Recommended Investigations, Clinical Decision Support
+            if (lowerLine.includes('immediate action') || 
+                lowerLine.includes('recommended investig') ||
+                lowerLine.includes('clinical decision support') ||
+                lowerLine.includes('next step')) {
+                currentSection = 'next';
+                continue;
+            }
         }
         
-        if (currentSection && line.trim()) {
+        // Add content to current section
+        if (currentSection && trimmedLine) {
             sections[currentSection] += line + '\n';
         }
     }
     
     // If no structured parsing worked, put everything in 'why'
     if (!sections.why && !sections.missing && !sections.risks && !sections.next) {
-        sections.why = props.explanation;
+        sections.why = text;
     }
     
     return sections;
@@ -162,6 +239,17 @@ const getInsightColor = (type: 'warning' | 'info' | 'critical') => {
                 ⚠️ AI outputs are for support only. Verify all suggestions.
             </div>
 
+            <!-- Error Display -->
+            <div v-if="isErrorObject" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-3">
+                <div class="flex items-start gap-2">
+                    <span class="text-red-500">❌</span>
+                    <div>
+                        <h4 class="font-medium text-red-700 dark:text-red-300 text-sm">{{ errorMessage }}</h4>
+                        <p v-if="errorDetail" class="text-xs text-red-600 dark:text-red-400 mt-1">{{ errorDetail }}</p>
+                    </div>
+                </div>
+            </div>
+
             <!-- Quick Insights -->
             <div v-if="quickInsights.length > 0" class="space-y-2">
                 <h4 class="text-xs font-medium text-muted-foreground uppercase">Quick Insights</h4>
@@ -192,9 +280,9 @@ const getInsightColor = (type: 'warning' | 'info' | 'critical') => {
                 </div>
 
                 <!-- Section Content -->
-                <Card>
-                    <CardContent class="p-3">
-                        <div v-if="parsedExplanation[activeSection]" class="text-sm">
+                <Card class="overflow-hidden">
+                    <CardContent class="p-3 max-h-[400px] overflow-y-auto">
+                        <div v-if="parsedExplanation[activeSection]" class="text-sm whitespace-pre-wrap">
                             {{ parsedExplanation[activeSection] }}
                         </div>
                         <div v-else class="text-sm text-muted-foreground">
@@ -204,8 +292,19 @@ const getInsightColor = (type: 'warning' | 'info' | 'critical') => {
                 </Card>
             </div>
 
+            <!-- Loading State -->
+            <div v-if="isLoading" class="flex items-center justify-center py-8">
+                <div class="flex flex-col items-center gap-2">
+                    <svg class="animate-spin h-8 w-8 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p class="text-sm text-muted-foreground">Generating clinical explanation...</p>
+                </div>
+            </div>
+
             <!-- Request Explanation Button -->
-            <div v-if="!parsedExplanation">
+            <div v-if="!parsedExplanation && !isErrorObject && !isLoading">
                 <Card class="border-dashed">
                     <CardContent class="p-4 text-center">
                         <div class="text-muted-foreground mb-3">
@@ -214,8 +313,13 @@ const getInsightColor = (type: 'warning' | 'info' | 'critical') => {
                             </svg>
                             <p class="text-sm">No AI explanation available</p>
                         </div>
-                        <Button size="sm" @click="emit('requestExplanation')">
-                            Request Explanation
+                        <Button size="sm" @click="emit('requestExplanation')" :disabled="isLoading">
+                            <svg v-if="isLoading" class="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span v-if="isLoading">Generating...</span>
+                            <span v-else>Request Explanation</span>
                         </Button>
                     </CardContent>
                 </Card>

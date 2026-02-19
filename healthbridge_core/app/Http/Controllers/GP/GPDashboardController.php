@@ -262,30 +262,33 @@ class GPDashboardController extends Controller
     /**
      * Accept a referral.
      */
-    public function acceptReferral(Request $request, string $couchId): JsonResponse
+    public function acceptReferral(Request $request, string $couchId)
     {
         $request->validate([
             'notes' => 'nullable|string|max:1000',
         ]);
 
+        $user = auth()->user();
         $session = ClinicalSession::where('couch_id', $couchId)->firstOrFail();
 
         if (!$this->stateMachine->canTransition($session, ClinicalSession::WORKFLOW_IN_GP_REVIEW)) {
-            return response()->json([
-                'message' => 'This referral cannot be accepted in its current state.',
-            ], 422);
+            return redirect()->back()->withErrors(['message' => 'This referral cannot be accepted in its current state.']);
         }
 
+        // Transition the session state
         $transition = $this->stateMachine->acceptReferral(
             $session,
             $request->notes
         );
 
-        return response()->json([
-            'message' => 'Referral accepted successfully.',
-            'session' => $session->fresh(['patient', 'referrals']),
-            'transition' => $transition,
-        ]);
+        // Assign the referral to the current GP
+        $referral = $session->referrals->first();
+        if ($referral) {
+            $referral->accept($user->id);
+        }
+
+        // Redirect back with success message (Inertia response)
+        return redirect()->back()->with('success', 'Referral accepted successfully.');
     }
 
     /**
@@ -437,6 +440,56 @@ class GPDashboardController extends Controller
     }
 
     /**
+     * Get my cases as JSON for the dashboard (same format as referralsJson).
+     */
+    public function myCasesJson(Request $request): JsonResponse
+    {
+        $user = auth()->user();
+
+        $query = ClinicalSession::with(['patient', 'referrals.referringUser', 'forms'])
+            ->whereIn('workflow_state', [
+                ClinicalSession::WORKFLOW_IN_GP_REVIEW,
+                ClinicalSession::WORKFLOW_UNDER_TREATMENT,
+            ])
+            ->whereHas('referrals', function ($q) use ($user) {
+                $q->where('assigned_to_user_id', $user->id);
+            })
+            ->orderBy('workflow_state_updated_at', 'desc');
+
+        // Filter by search term
+        if ($request->has('search') && strlen($request->search) >= 2) {
+            $search = $request->search;
+            $query->whereHas('patient', function ($q) use ($search) {
+                $q->where('first_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('cpt', 'like', "%{$search}%");
+            });
+        }
+
+        $sessions = $query->get();
+
+        // Separate into high priority (red) and normal priority
+        $highPriority = $sessions->filter(function ($session) {
+            return $session->triage_priority === 'red';
+        })->map(function ($session) {
+            return $this->formatReferralForQueue($session);
+        })->values();
+
+        $normalPriority = $sessions->filter(function ($session) {
+            return $session->triage_priority !== 'red';
+        })->map(function ($session) {
+            return $this->formatReferralForQueue($session);
+        })->values();
+
+        return response()->json([
+            'cases' => [
+                'high_priority' => $highPriority,
+                'normal_priority' => $normalPriority,
+            ],
+        ]);
+    }
+
+    /**
      * Format session for dashboard list view.
      */
     protected function formatSessionForDashboard(ClinicalSession $session): array
@@ -460,6 +513,7 @@ class GPDashboardController extends Controller
             ] : null,
             'referral' => $session->referrals->first() ? [
                 'id' => $session->referrals->first()->id,
+                'session_couch_id' => $session->referrals->first()->session_couch_id,
                 'reason' => $session->referrals->first()->reason,
                 'referred_at' => $session->referrals->first()->created_at->toISOString(),
             ] : null,

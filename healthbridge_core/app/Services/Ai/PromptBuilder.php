@@ -128,25 +128,55 @@ class PromptBuilder
     protected function explainTriageTemplate(): string
     {
         return <<<'PROMPT'
-You are a clinical decision support assistant helping a nurse understand a triage classification.
+You are a clinical support AI assistant with direct access to the patient database. Provide a comprehensive clinical explanation for the following patient:
 
-PATIENT INFORMATION:
+**PATIENT IDENTIFICATION:**
+- Name: {{patient_name}}
+- MRN (CPT): {{patient_cpt}}
+
+**PATIENT DEMOGRAPHICS:**
 - Age: {{age}}
 - Gender: {{gender}}
-- Chief Complaint: {{chiefComplaint}}
+- Weight: {{weight_kg}} kg
 
-CLINICAL FINDINGS:
+**CLINICAL PRESENTATION:**
+- Chief Complaint: {{chief_complaint}}
+- Triage Priority: {{triage_priority}} (RED=Emergency, YELLOW=Urgent, GREEN=Routine)
+
+**VITAL SIGNS:**
+{{vitals}}
+
+**DANGER SIGNS IDENTIFIED:**
+{{danger_signs}}
+
+**CLINICAL FINDINGS:**
 {{findings}}
 
-TRIAGE CLASSIFICATION: {{triagePriority}}
+**REFERRAL INFORMATION:**
+- Referred by: {{referred_by}}
+- Referral Notes: {{referral_notes}}
 
-Please explain to the nurse:
-1. Why this triage classification was assigned
-2. What clinical signs contributed to this decision
-3. What immediate actions are recommended
-4. What warning signs to monitor
+---
 
-Remember: You are providing decision support, not making diagnoses. Always defer to clinical judgment.
+Based on the above information, provide a detailed clinical explanation that includes:
+
+1. **Clinical Interpretation**: Analyze the presenting symptoms and vital signs. What do these findings suggest clinically?
+
+2. **Differential Diagnoses**: List 3-5 potential differential diagnoses to consider based on the presentation, ranked by likelihood.
+
+3. **Triage Rationale**: Explain why this patient was assigned the {{triage_priority}} triage priority. What specific findings contributed to this classification?
+
+4. **Immediate Actions**: What immediate actions or interventions should be considered?
+
+5. **Red Flags**: What warning signs should be monitored that would indicate deterioration or need for escalation?
+
+6. **Recommended Investigations**: What further tests, labs, or imaging should be considered?
+
+7. **Clinical Decision Support**: Any additional clinical guidance relevant to this case.
+
+**IMPORTANT**: You are providing clinical decision support, not making definitive diagnoses. All recommendations should be validated by the treating clinician. If critical information is missing, explicitly state what data is unavailable.
+
+Format your response in a clear, professional manner suitable for clinical staff review.
 PROMPT;
     }
 
@@ -231,7 +261,7 @@ PROMPT;
     protected function specialistReviewTemplate(): string
     {
         return <<<'PROMPT'
-You are a clinical assistant preparing a case summary for specialist review.
+You are a clinical assistant preparing a case summary for specialist review. You MUST use the actual patient data provided below - do NOT return a template with placeholders.
 
 PATIENT: {{age}} old {{gender}}
 REFERRAL REASON: {{referralReason}}
@@ -245,14 +275,14 @@ CURRENT FINDINGS:
 TESTS/IMAGING:
 {{tests}}
 
-Prepare a concise specialist handoff that includes:
-1. Summary of the case
-2. Key clinical findings
-3. What has been done so far
-4. Specific questions for the specialist
-5. Urgency assessment
+Based on the ACTUAL patient data above, prepare a concise specialist handoff that includes:
+1. Summary of the case (use the actual patient information, not placeholders)
+2. Key clinical findings (list the actual findings from the data)
+3. What has been done so far (based on available information)
+4. Specific questions for the specialist (relevant to this specific case)
+5. Urgency assessment (based on the actual clinical presentation)
 
-Be thorough but concise. Focus on information relevant to the specialty.
+IMPORTANT: Fill in ALL information using the actual patient data provided. Do NOT use placeholders like {{...}} in your response. If specific information is not available, state "Not available" rather than using placeholder syntax.
 PROMPT;
     }
 
@@ -262,7 +292,7 @@ PROMPT;
     protected function redCaseAnalysisTemplate(): string
     {
         return <<<'PROMPT'
-You are a clinical assistant analyzing a RED (emergency) case for immediate review.
+You are a clinical assistant analyzing a RED (emergency) case for immediate review. You MUST use the actual patient data provided below - do NOT return a template with placeholders.
 
 PATIENT: {{age}} old {{gender}}
 TRIAGE: RED - EMERGENCY
@@ -278,13 +308,15 @@ VITAL SIGNS:
 IMMEDIATE ACTIONS TAKEN:
 {{actionsTaken}}
 
-Provide an immediate analysis:
-1. Most likely diagnoses to consider
-2. Critical actions that should be taken immediately
-3. What to prepare for potential interventions
-4. Key monitoring points
+Based on the ACTUAL patient data above, provide an immediate analysis:
+1. Most likely diagnoses to consider (based on the actual symptoms and findings)
+2. Critical actions that should be taken immediately (specific to this case)
+3. What to prepare for potential interventions (based on likely diagnoses)
+4. Key monitoring points (specific to this patient's condition)
 
 This is an emergency case - be concise and focus on immediate clinical priorities.
+
+IMPORTANT: Fill in ALL information using the actual patient data provided. Do NOT use placeholders like {{...}} in your response.
 PROMPT;
     }
 
@@ -294,7 +326,7 @@ PROMPT;
     protected function clinicalSummaryTemplate(): string
     {
         return <<<'PROMPT'
-You are a clinical assistant creating a visit summary.
+You are a clinical assistant creating a visit summary. You MUST use the actual patient data provided below - do NOT return a template with placeholders.
 
 PATIENT: {{age}} old {{gender}}
 VISIT DATE: {{visitDate}}
@@ -307,15 +339,15 @@ ASSESSMENT:
 TREATMENT PROVIDED:
 {{treatment}}
 
-Create a structured clinical summary including:
-1. Presenting problem
-2. Key findings
-3. Assessment/diagnosis
-4. Treatment provided
-5. Follow-up plan
-6. Return precautions
+Based on the ACTUAL patient data above, create a structured clinical summary including:
+1. Presenting problem (use the actual chief complaint)
+2. Key findings (from the assessment data)
+3. Assessment/diagnosis (based on clinical findings)
+4. Treatment provided (from the treatment data)
+5. Follow-up plan (recommend based on the condition)
+6. Return precautions (specific to this patient's condition)
 
-Keep the summary concise and suitable for the medical record.
+IMPORTANT: Fill in ALL information using the actual patient data provided. Do NOT use placeholders like {{...}} in your response.
 PROMPT;
     }
 
@@ -325,7 +357,7 @@ PROMPT;
     protected function handoffReportTemplate(): string
     {
         return <<<'PROMPT'
-You are a clinical assistant creating an SBAR handoff report.
+You are a clinical assistant creating an SBAR handoff report. You MUST use the actual patient data provided below - do NOT return a template with placeholders.
 
 PATIENT: {{age}} old {{gender}}
 UNIT/LOCATION: {{location}}
@@ -342,13 +374,15 @@ ASSESSMENT:
 RECOMMENDATION:
 {{recommendation}}
 
-Create a structured SBAR handoff report that:
-1. Clearly states the current situation
-2. Provides relevant background
-3. Summarizes the clinical assessment
-4. States what is needed from the receiving team
+Based on the ACTUAL patient data above, create a structured SBAR handoff report that:
+1. Clearly states the current situation (use the actual chief complaint)
+2. Provides relevant background (use the actual patient demographics)
+3. Summarizes the clinical assessment (from the assessment data)
+4. States what is needed from the receiving team (based on the recommendation)
 
 Format for verbal handoff - clear and concise.
+
+IMPORTANT: Fill in ALL information using the actual patient data provided. Do NOT use placeholders like {{...}} in your response.
 PROMPT;
     }
 

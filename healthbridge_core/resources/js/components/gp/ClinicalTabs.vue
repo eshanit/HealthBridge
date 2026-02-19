@@ -37,6 +37,8 @@ interface Props {
     medicalHistory?: string[];
     currentMedications?: string[];
     allergies?: string[];
+    readOnly?: boolean; // When true, tabs are in view-only mode
+    sessionCouchId?: string; // The clinical session's CouchDB ID for API calls
 }
 
 const props = defineProps<Props>();
@@ -103,34 +105,48 @@ const handleAITask = (task: string) => {
             <AssessmentTab
                 v-else-if="activeTab === 'assessment'"
                 :patient="patient"
+                :read-only="readOnly"
             />
             
             <DiagnosticsTab
                 v-else-if="activeTab === 'diagnostics'"
                 :patient="patient"
+                :read-only="readOnly"
             />
             
             <TreatmentTab
                 v-else-if="activeTab === 'treatment'"
                 :patient="patient"
+                :read-only="readOnly"
+                :session-couch-id="sessionCouchId"
             />
             
-            <!-- Structured Prescription Tab -->
+            <!-- Structured Prescription Tab - Disabled in view-only mode -->
+            <div v-else-if="activeTab === 'prescription' && readOnly" class="text-center py-8 text-muted-foreground">
+                <span class="text-4xl">🔒</span>
+                <p class="mt-2 font-medium">Prescription Disabled</p>
+                <p class="text-sm mt-1">Accept the referral to enable prescription writing.</p>
+            </div>
             <StructuredPrescription
-                v-else-if="activeTab === 'prescription'"
-                :session-couch-id="patient.id"
+                v-else-if="activeTab === 'prescription' && !readOnly"
+                :session-couch-id="sessionCouchId || patient.id"
             />
             
             <!-- Timeline Tab -->
             <TimelineView
                 v-else-if="activeTab === 'timeline'"
-                :session-couch-id="patient.id"
+                :session-couch-id="sessionCouchId || patient.id"
             />
             
-            <!-- Interactive AI Guidance Tab -->
+            <!-- Interactive AI Guidance Tab - Disabled in view-only mode -->
+            <div v-else-if="activeTab === 'ai_guidance' && readOnly" class="text-center py-8 text-muted-foreground">
+                <span class="text-4xl">🔒</span>
+                <p class="mt-2 font-medium">AI Guidance Disabled</p>
+                <p class="text-sm mt-1">Accept the referral to enable AI assistance.</p>
+            </div>
             <InteractiveAIGuidance
-                v-else-if="activeTab === 'ai_guidance'"
-                :session-couch-id="patient.id"
+                v-else-if="activeTab === 'ai_guidance' && !readOnly"
+                :session-couch-id="sessionCouchId || patient.id"
                 :patient-context="{
                     age: patient.age ?? undefined,
                     triage_priority: patient.triage_color,
