@@ -72,9 +72,25 @@ class Referral extends Model
     }
 
     /**
+     * Get the referring user (alias for compatibility).
+     */
+    public function referredBy()
+    {
+        return $this->belongsTo(User::class, 'referring_user_id');
+    }
+
+    /**
      * Get the assigned user.
      */
     public function assignedTo()
+    {
+        return $this->belongsTo(User::class, 'assigned_to_user_id');
+    }
+
+    /**
+     * Get the assigned user (alias for compatibility).
+     */
+    public function referredTo()
     {
         return $this->belongsTo(User::class, 'assigned_to_user_id');
     }

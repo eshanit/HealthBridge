@@ -169,8 +169,48 @@ class CouchDbSetup extends Command
             $this->error('Failed to create design document: ' . $e->getMessage());
         }
 
+        // Create reports design document for clinical reports
+        $this->createReportsDesignDocument();
+
         // Create validation document for document structure
         $this->createValidationDocument();
+    }
+
+    /**
+     * Create reports design document for clinical reports.
+     */
+    protected function createReportsDesignDocument(): void
+    {
+        $reportsDesignDoc = [
+            '_id' => '_design/reports',
+            'views' => [
+                'by_session' => [
+                    'map' => "function(doc) { if (doc.type === 'clinicalReport' && doc.session_couch_id) { emit(doc.session_couch_id, doc); } }"
+                ],
+                'by_patient' => [
+                    'map' => "function(doc) { if (doc.type === 'clinicalReport' && doc.patient_cpt) { emit(doc.patient_cpt, doc); } }"
+                ],
+                'by_type' => [
+                    'map' => "function(doc) { if (doc.type === 'clinicalReport' && doc.report_type) { emit(doc.report_type, doc); } }"
+                ],
+                'by_date' => [
+                    'map' => "function(doc) { if (doc.type === 'clinicalReport' && doc.generated_at) { emit(doc.generated_at, doc); } }"
+                ],
+            ],
+        ];
+
+        // Check if reports design doc exists and get revision
+        $existingDoc = $this->couchDb->getDocument('_design/reports');
+        if ($existingDoc && isset($existingDoc['_rev'])) {
+            $reportsDesignDoc['_rev'] = $existingDoc['_rev'];
+        }
+
+        try {
+            $this->couchDb->saveDocument($reportsDesignDoc);
+            $this->info('✓ Reports design document created/updated');
+        } catch (\Exception $e) {
+            $this->error('Failed to create reports design document: ' . $e->getMessage());
+        }
     }
 
     /**

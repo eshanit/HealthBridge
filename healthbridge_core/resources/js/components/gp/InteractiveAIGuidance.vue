@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue';
+import { ref, nextTick } from 'vue';
+import { router } from '@inertiajs/vue3';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import axios from 'axios';
 
 interface Message {
     id: string;
@@ -33,6 +33,7 @@ const question = ref('');
 const isLoading = ref(false);
 const error = ref<string | null>(null);
 const messagesContainer = ref<HTMLElement | null>(null);
+const conversationId = ref<string | null>(null);
 
 // Predefined AI actions
 const predefinedActions = [
@@ -92,7 +93,7 @@ const addMessage = (role: 'user' | 'assistant', content: string): Message => {
     return message;
 };
 
-// Execute predefined action
+// Execute predefined action using Inertia
 const executeAction = async (action: typeof predefinedActions[0]) => {
     isLoading.value = true;
     error.value = null;
@@ -101,27 +102,45 @@ const executeAction = async (action: typeof predefinedActions[0]) => {
     addMessage('user', action.label);
 
     try {
-        const response = await axios.post('/api/ai/medgemma', {
-            task: action.task,
-            sessionId: props.sessionCouchId,
-            context: props.patientContext,
+        // Use fetch API with CSRF token for API endpoints
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        
+        const response = await fetch('/api/ai/medgemma', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify({
+                task: action.task,
+                sessionId: props.sessionCouchId,
+                context: props.patientContext,
+                conversation_id: conversationId.value,
+            }),
         });
 
-        if (response.data.success) {
-            addMessage('assistant', response.data.response);
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            // Store conversation ID for continuity
+            if (data.conversation_id) {
+                conversationId.value = data.conversation_id;
+            }
+            addMessage('assistant', data.output || data.response);
         } else {
-            throw new Error(response.data.error || 'AI request failed');
+            throw new Error(data.error || `Server returned ${response.status}`);
         }
     } catch (err: any) {
         console.error('AI action failed:', err);
-        error.value = err.response?.data?.message || err.message || 'Failed to get AI response';
-        addMessage('assistant', 'Sorry, I encountered an error processing your request. Please try again.');
+        error.value = err.message || 'Failed to get AI response';
+        addMessage('assistant', 'Sorry, I encountered an error processing your request. Please check if Ollama is running and try again.');
     } finally {
         isLoading.value = false;
     }
 };
 
-// Send free-text question
+// Send free-text question using Inertia
 const sendQuestion = async () => {
     if (!question.value.trim() || isLoading.value) return;
 
@@ -134,24 +153,41 @@ const sendQuestion = async () => {
     addMessage('user', userQuestion);
 
     try {
-        const response = await axios.post('/api/ai/medgemma', {
-            task: 'clinical_summary', // Use clinical_summary as base for free-text
-            sessionId: props.sessionCouchId,
-            context: {
-                ...props.patientContext,
-                question: userQuestion,
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        
+        const response = await fetch('/api/ai/medgemma', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept': 'application/json',
             },
+            body: JSON.stringify({
+                task: 'clinical_summary',
+                sessionId: props.sessionCouchId,
+                context: {
+                    ...props.patientContext,
+                    question: userQuestion,
+                },
+                conversation_id: conversationId.value,
+            }),
         });
 
-        if (response.data.success) {
-            addMessage('assistant', response.data.response);
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            // Store conversation ID for continuity
+            if (data.conversation_id) {
+                conversationId.value = data.conversation_id;
+            }
+            addMessage('assistant', data.output || data.response);
         } else {
-            throw new Error(response.data.error || 'AI request failed');
+            throw new Error(data.error || `Server returned ${response.status}`);
         }
     } catch (err: any) {
         console.error('AI question failed:', err);
-        error.value = err.response?.data?.message || err.message || 'Failed to get AI response';
-        addMessage('assistant', 'Sorry, I encountered an error processing your question. Please try again.');
+        error.value = err.message || 'Failed to get AI response';
+        addMessage('assistant', 'Sorry, I encountered an error processing your question. Please check if Ollama is running and try again.');
     } finally {
         isLoading.value = false;
     }
@@ -161,6 +197,7 @@ const sendQuestion = async () => {
 const clearConversation = () => {
     messages.value = [];
     error.value = null;
+    conversationId.value = null;
 };
 
 // Format time
@@ -182,14 +219,19 @@ const formatTime = (date: Date): string => {
                         Decision support tool - not for diagnosis
                     </p>
                 </div>
-                <Button
-                    v-if="messages.length > 0"
-                    variant="ghost"
-                    size="sm"
-                    @click="clearConversation"
-                >
-                    Clear
-                </Button>
+                <div class="flex items-center gap-2">
+                    <Badge v-if="conversationId" variant="outline" class="text-xs">
+                        Conversation Active
+                    </Badge>
+                    <Button
+                        v-if="messages.length > 0"
+                        variant="ghost"
+                        size="sm"
+                        @click="clearConversation"
+                    >
+                        Clear
+                    </Button>
+                </div>
             </div>
         </CardHeader>
 
@@ -223,6 +265,9 @@ const formatTime = (date: Date): string => {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                     </svg>
                     <p class="text-sm">Select a quick action or ask a clinical question</p>
+                    <p class="text-xs mt-2 text-yellow-600 dark:text-yellow-400">
+                        Requires Ollama to be running locally
+                    </p>
                 </div>
 
                 <!-- Messages -->

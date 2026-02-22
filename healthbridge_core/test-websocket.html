@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Connection Test - Laravel Reverb</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; margin-top: 0; }
+        h2 { color: #666; margin-top: 0; }
+        .status {
+            padding: 10px 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-weight: 500;
+        }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.info { background: #d1ecf1; color: #0c5460; }
+        .status.warning { background: #fff3cd; color: #856404; }
+        .log {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .log .timestamp { color: #6a9955; }
+        .log .error { color: #f14c4c; }
+        .log .success { color: #4ec9b0; }
+        .log .info { color: #3794ff; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        button.danger { background: #dc3545; }
+        button.danger:hover { background: #c82333; }
+        .config-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+        .config-table td, .config-table th {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .config-table th { background: #f8f9fa; }
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🔌 WebSocket Connection Test</h1>
+        <p>Test your Laravel Reverb WebSocket server connection</p>
+    </div>
+
+    <div class="card">
+        <h2>Configuration</h2>
+        <table class="config-table">
+            <tr>
+                <th>Setting</th>
+                <th>Value</th>
+            </tr>
+            <tr>
+                <td><label for="host">Host</label></td>
+                <td><input type="text" id="host" value="localhost"></td>
+            </tr>
+            <tr>
+                <td><label for="port">Port</label></td>
+                <td><input type="number" id="port" value="8080"></td>
+            </tr>
+            <tr>
+                <td><label for="appKey">App Key</label></td>
+                <td><input type="text" id="appKey" value="healthbridge"></td>
+            </tr>
+            <tr>
+                <td><label for="scheme">Scheme</label></td>
+                <td><input type="text" id="scheme" value="http"></td>
+            </tr>
+        </table>
+        <div id="wsUrl" class="status info"></div>
+    </div>
+
+    <div class="card">
+        <h2>Connection Test</h2>
+        <button id="testBtn" onclick="testConnection()">Test Connection</button>
+        <button id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
+        <button class="danger" onclick="clearLog()">Clear Log</button>
+        <div id="connectionStatus" class="status info">Not connected</div>
+    </div>
+
+    <div class="card">
+        <h2>Event Log</h2>
+        <div id="log" class="log"></div>
+    </div>
+
+    <div class="card">
+        <h2>Troubleshooting Tips</h2>
+        <ul>
+            <li><strong>Connection refused:</strong> Ensure Reverb server is running: <code>php artisan reverb:start</code></li>
+            <li><strong>Timeout:</strong> Check if port is blocked by firewall</li>
+            <li><strong>SSL Error:</strong> Use <code>ws://</code> for HTTP, <code>wss://</code> for HTTPS</li>
+            <li><strong>403 Forbidden:</strong> Check your REVERB_APP_KEY matches the server configuration</li>
+        </ul>
+    </div>
+
+    <script>
+        let ws = null;
+        const logEl = document.getElementById('log');
+        const statusEl = document.getElementById('connectionStatus');
+        const wsUrlEl = document.getElementById('wsUrl');
+        const testBtn = document.getElementById('testBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+
+        function updateWsUrl() {
+            const host = document.getElementById('host').value;
+            const port = document.getElementById('port').value;
+            const appKey = document.getElementById('appKey').value;
+            const scheme = document.getElementById('scheme').value;
+            const protocol = scheme === 'https' ? 'wss' : 'ws';
+            const url = `${protocol}://${host}:${port}/app/${appKey}?protocol=7&client=js&version=8.4.0`;
+            wsUrlEl.textContent = `WebSocket URL: ${url}`;
+            return url;
+        }
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const span = document.createElement('span');
+            span.className = type;
+            span.textContent = `[${timestamp}] ${message}\n`;
+            logEl.appendChild(span);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function clearLog() {
+            logEl.innerHTML = '';
+            log('Log cleared');
+        }
+
+        function setStatus(message, type) {
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+
+        function testConnection() {
+            const url = updateWsUrl();
+            
+            // Close existing connection if any
+            if (ws) {
+                ws.close();
+            }
+
+            log('Attempting to connect...', 'info');
+            setStatus('Connecting...', 'warning');
+            testBtn.disabled = true;
+
+            try {
+                ws = new WebSocket(url);
+
+                ws.onopen = function() {
+                    log('✅ Connection established successfully!', 'success');
+                    setStatus('Connected', 'success');
+                    testBtn.disabled = true;
+                    disconnectBtn.disabled = false;
+                };
+
+                ws.onmessage = function(event) {
+                    log(`📨 Received: ${event.data}`, 'info');
+                };
+
+                ws.onerror = function(error) {
+                    log('❌ WebSocket error occurred', 'error');
+                    log(`Error object: ${JSON.stringify(error)}`, 'error');
+                    setStatus('Connection error', 'error');
+                    testBtn.disabled = false;
+                    disconnectBtn.disabled = true;
+                };
+
+                ws.onclose = function(event) {
+                    const reason = event.reason || 'No reason provided';
+                    const code = event.code;
+                    log(`🔌 Connection closed - Code: ${code}, Reason: ${reason}`, 'warning');
+                    setStatus('Disconnected', 'warning');
+                    testBtn.disabled = false;
+                    disconnectBtn.disabled = true;
+                };
+
+            } catch (error) {
+                log(`❌ Failed to create WebSocket: ${error.message}`, 'error');
+                setStatus('Failed to connect', 'error');
+                testBtn.disabled = false;
+            }
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+                log('Disconnected by user', 'info');
+            }
+        }
+
+        // Initialize URL display
+        updateWsUrl();
+
+        // Update URL when inputs change
+        ['host', 'port', 'appKey', 'scheme'].forEach(id => {
+            document.getElementById(id).addEventListener('input', updateWsUrl);
+        });
+    </script>
+</body>
+</html>

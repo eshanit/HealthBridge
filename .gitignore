@@ -70,3 +70,6 @@ auth.json
 # --- Other ---
 .zed/
 .nova/
+
+# --- Submodule ---
+

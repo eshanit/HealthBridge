@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue';
+import { router } from '@inertiajs/vue3';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,9 +29,14 @@ interface Patient {
 interface Props {
     patient: Patient;
     readOnly?: boolean;
+    sessionCouchId?: string;
 }
 
 const props = defineProps<Props>();
+
+const emit = defineEmits<{
+    (e: 'tabChange', tab: string): void;
+}>();
 
 // Form state
 const assessment = reactive({
@@ -95,31 +101,27 @@ const toggleExamFinding = (finding: string) => {
 };
 
 const saveAssessment = async () => {
+    if (!props.sessionCouchId) {
+        console.error('No session CouchDB ID provided');
+        return;
+    }
+    
     isSaving.value = true;
     
-    try {
-        const response = await fetch(`/sessions/${props.patient.id}/assessment`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-            },
-            body: JSON.stringify({
-                ...assessment,
-                symptoms: symptoms.value,
-                exam_findings: examFindings.value,
-            }),
-        });
-        
-        if (response.ok) {
-            // Show success message
-            console.log('Assessment saved successfully');
-        }
-    } catch (error) {
-        console.error('Failed to save assessment:', error);
-    } finally {
-        isSaving.value = false;
-    }
+    router.post(`/gp/sessions/${props.sessionCouchId}/assessment`, {
+        ...assessment,
+        symptoms: symptoms.value,
+        exam_findings: examFindings.value,
+    }, {
+        preserveScroll: true,
+        onSuccess: () => {
+            // Emit event to change to diagnostics tab
+            emit('tabChange', 'diagnostics');
+        },
+        onFinish: () => {
+            isSaving.value = false;
+        },
+    });
 };
 </script>
 

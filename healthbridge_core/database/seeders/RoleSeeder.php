@@ -41,6 +41,15 @@ class RoleSeeder extends Seeder
             'accept-referrals',
             'add-case-comments',
             
+            // Radiology permissions (Phase 2)
+            'view-radiology-worklist',
+            'sign-reports',
+            'request-second-opinion',
+            'manage-procedures',
+            'view-critical-findings',
+            'receive-critical-alerts',
+            'initiate-session',
+            
             // Governance permissions
             'view-dashboards',
             'view-ai-console',
@@ -107,6 +116,14 @@ class RoleSeeder extends Seeder
                 'view-all-cases',
                 'accept-referrals',
                 'add-case-comments',
+                // Phase 2 permissions
+                'view-radiology-worklist',
+                'sign-reports',
+                'request-second-opinion',
+                'manage-procedures',
+                'view-critical-findings',
+                'receive-critical-alerts',
+                'initiate-session',
             ],
             'dermatologist' => [
                 'use-ai',

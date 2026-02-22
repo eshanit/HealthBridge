@@ -3,6 +3,8 @@
 use App\Http\Controllers\GP\ClinicalSessionController;
 use App\Http\Controllers\GP\GPDashboardController;
 use App\Http\Controllers\GP\PatientController;
+use App\Http\Controllers\GP\PrescriptionController;
+use App\Http\Controllers\GP\ReportController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -57,8 +59,39 @@ Route::middleware(['auth', 'verified', 'role:doctor|admin'])->prefix('gp')->name
         Route::put('/{couchId}/treatment-plan', [ClinicalSessionController::class, 'updateTreatmentPlan'])->name('treatment-plan.update');
         Route::post('/{couchId}/comments', [ClinicalSessionController::class, 'addComment'])->name('comments.store');
         Route::get('/{couchId}/comments', [ClinicalSessionController::class, 'getComments'])->name('comments.index');
+        Route::post('/{couchId}/assessment', [ClinicalSessionController::class, 'storeAssessment'])->name('assessment.store');
+        Route::post('/{couchId}/diagnostics', [ClinicalSessionController::class, 'storeDiagnostics'])->name('diagnostics.store');
     });
     
     // Workflow Configuration (for frontend state machine)
     Route::get('/workflow/config', [ClinicalSessionController::class, 'getWorkflowConfig'])->name('workflow.config');
+    
+    // Prescription Management
+    Route::prefix('prescriptions')->name('prescriptions.')->group(function () {
+        Route::get('/sessions/{sessionCouchId}', [PrescriptionController::class, 'index'])->name('index');
+        Route::post('/sessions/{sessionCouchId}', [PrescriptionController::class, 'store'])->name('store');
+        Route::post('/sessions/{sessionCouchId}/save-and-redirect', [PrescriptionController::class, 'saveAndRedirect'])->name('save-and-redirect');
+        Route::put('/sessions/{sessionCouchId}/{prescription}', [PrescriptionController::class, 'update'])->name('update');
+        Route::delete('/sessions/{sessionCouchId}/{prescription}', [PrescriptionController::class, 'destroy'])->name('destroy');
+        Route::post('/sessions/{sessionCouchId}/{prescription}/dispense', [PrescriptionController::class, 'dispense'])->name('dispense');
+    });
+    
+    // Report Generation
+    Route::prefix('reports')->name('reports.')->group(function () {
+        // PDF Generation
+        Route::post('/sessions/{sessionCouchId}/discharge', [ReportController::class, 'dischargePdf'])->name('discharge');
+        Route::post('/sessions/{sessionCouchId}/handover', [ReportController::class, 'handoverPdf'])->name('handover');
+        Route::post('/sessions/{sessionCouchId}/referral', [ReportController::class, 'referralPdf'])->name('referral');
+        Route::post('/sessions/{sessionCouchId}/comprehensive', [ReportController::class, 'comprehensivePdf'])->name('comprehensive');
+        
+        // Direct Download
+        Route::get('/sessions/{sessionCouchId}/download/{type?}', [ReportController::class, 'downloadPdf'])->name('download');
+        
+        // HTML Preview
+        Route::get('/sessions/{sessionCouchId}/preview/{type?}', [ReportController::class, 'previewHtml'])->name('preview');
+        
+        // Stored Reports
+        Route::get('/sessions/{sessionCouchId}/stored', [ReportController::class, 'getSessionReports'])->name('stored');
+        Route::get('/stored/{reportId}', [ReportController::class, 'getStoredReport'])->name('get');
+    });
 });

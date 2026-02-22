@@ -4,11 +4,13 @@ namespace App\Http\Controllers\GP;
 
 use App\Http\Controllers\Controller;
 use App\Models\ClinicalSession;
+use App\Models\ClinicalForm;
 use App\Models\CaseComment;
 use App\Services\WorkflowStateMachine;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class ClinicalSessionController extends Controller
@@ -18,6 +20,36 @@ class ClinicalSessionController extends Controller
     public function __construct(WorkflowStateMachine $stateMachine)
     {
         $this->stateMachine = $stateMachine;
+    }
+
+    /**
+     * Verify the user has access to the specified session.
+     *
+     * @param ClinicalSession $session
+     * @return void
+     * @throws \Illuminate\Foundation\Exceptions\Handler
+     */
+    protected function authorizeSessionAccess(ClinicalSession $session): void
+    {
+        $user = auth()->user();
+        
+        // Admin and radiologists can access any session
+        if ($user->hasRole(['admin', 'radiologist'])) {
+            return;
+        }
+
+        // GPs can access their own sessions
+        if ($user->hasRole('gp') && $session->gp_id === $user->id) {
+            return;
+        }
+
+        // Nurses can access sessions assigned to them
+        if ($user->hasRole('nurse') && $session->nurse_id === $user->id) {
+            return;
+        }
+
+        // Deny access otherwise
+        abort(403, 'You do not have permission to access this session');
     }
 
     /**
@@ -230,6 +262,123 @@ class ClinicalSessionController extends Controller
     }
 
     /**
+     * Store assessment data for a session.
+     */
+    public function storeAssessment(Request $request, string $couchId)
+    {
+        $request->validate([
+            'chief_complaint' => 'nullable|string|max:1000',
+            'history_present_illness' => 'nullable|string|max:5000',
+            'past_medical_history' => 'nullable|string|max:5000',
+            'allergies' => 'nullable|string|max:2000',
+            'current_medications' => 'nullable|string|max:2000',
+            'review_of_systems' => 'nullable|string|max:5000',
+            'physical_exam' => 'nullable|string|max:5000',
+            'assessment_notes' => 'nullable|string|max:5000',
+            'symptoms' => 'nullable|array',
+            'exam_findings' => 'nullable|array',
+        ]);
+
+        $session = ClinicalSession::where('couch_id', $couchId)->firstOrFail();
+
+        // Authorize that the user has access to this session
+        $this->authorizeSessionAccess($session);
+
+        // Generate a unique couch_id for the form
+        $formCouchId = 'form_assessment_' . $couchId;
+
+        // Create or update the assessment form
+        $form = ClinicalForm::updateOrCreate(
+            [
+                'session_couch_id' => $couchId,
+                'schema_id' => 'gp_assessment',
+            ],
+            [
+                'couch_id' => $formCouchId,
+                'form_uuid' => Str::uuid()->toString(),
+                'patient_cpt' => $session->patient_cpt,
+                'schema_version' => '1.0',
+                'status' => 'completed',
+                'answers' => [
+                    'chief_complaint' => $request->chief_complaint,
+                    'history_present_illness' => $request->history_present_illness,
+                    'past_medical_history' => $request->past_medical_history,
+                    'allergies' => $request->allergies,
+                    'current_medications' => $request->current_medications,
+                    'review_of_systems' => $request->review_of_systems,
+                    'physical_exam' => $request->physical_exam,
+                    'assessment_notes' => $request->assessment_notes,
+                    'symptoms' => $request->symptoms ?? [],
+                    'exam_findings' => $request->exam_findings ?? [],
+                ],
+                'completed_at' => now(),
+            ]
+        );
+
+        // Update the session's chief_complaint if provided
+        if ($request->chief_complaint) {
+            $session->update([
+                'chief_complaint' => $request->chief_complaint,
+            ]);
+        }
+
+        // Redirect to the diagnostics tab with success message
+        return redirect()->back()
+            ->with('success', 'Assessment saved successfully.')
+            ->with('activeTab', 'diagnostics');
+    }
+
+    /**
+     * Store diagnostics/orders data for a session.
+     */
+    public function storeDiagnostics(Request $request, string $couchId)
+    {
+        $request->validate([
+            'labs' => 'nullable|array',
+            'imaging' => 'nullable|array',
+            'other_lab' => 'nullable|string|max:1000',
+            'other_imaging' => 'nullable|string|max:1000',
+            'specialist_notes' => 'nullable|string|max:5000',
+        ]);
+
+        $session = ClinicalSession::where('couch_id', $couchId)->firstOrFail();
+
+        // Authorize that the user has access to this session
+        $this->authorizeSessionAccess($session);
+
+        // Generate a unique couch_id for the form
+        $formCouchId = 'form_diagnostics_' . $couchId;
+
+        // Create or update the diagnostics form
+        $form = ClinicalForm::updateOrCreate(
+            [
+                'session_couch_id' => $couchId,
+                'schema_id' => 'gp_diagnostics',
+            ],
+            [
+                'couch_id' => $formCouchId,
+                'form_uuid' => Str::uuid()->toString(),
+                'patient_cpt' => $session->patient_cpt,
+                'schema_version' => '1.0',
+                'status' => 'completed',
+                'answers' => [
+                    'labs' => $request->labs ?? [],
+                    'imaging' => $request->imaging ?? [],
+                    'other_lab' => $request->other_lab,
+                    'other_imaging' => $request->other_imaging,
+                    'specialist_notes' => $request->specialist_notes,
+                ],
+                'completed_at' => now(),
+            ]
+        );
+
+        // Redirect to the treatment tab with success message
+        return redirect()->back()
+            ->with('success', 'Diagnostics orders submitted successfully.')
+            ->with('activeTab', 'treatment');
+    }
+
+    /**
      * Get the workflow state machine configuration.
      */
     public function getWorkflowConfig(): JsonResponse
@@ -255,8 +404,10 @@ class ClinicalSessionController extends Controller
             'treatment_plan' => $request->treatment_plan,
         ]);
 
-        // Redirect back with success message (Inertia response)
-        return redirect()->back()->with('success', 'Treatment plan saved successfully.');
+        // Redirect back with success message and switch to prescription tab
+        return redirect()->back()
+            ->with('success', 'Treatment plan saved successfully.')
+            ->with('activeTab', 'prescription');
     }
 
     /**

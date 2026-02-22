@@ -108,6 +108,7 @@ class MedGemmaController extends Controller
         $user = Auth::user();
         $task = $request->input('task');
         $userRole = $request->attributes->get('ai_user_role', 'unknown');
+        $conversationId = $request->input('conversation_id');
 
         // Apply rate limiting
         $rateLimitResult = $this->rateLimiter->attempt($task, $user->id, $userRole);
@@ -136,11 +137,11 @@ class MedGemmaController extends Controller
 
         // Use SDK with Prism facade
         if (config('ai.use_sdk_agents', false)) {
-            return $this->handleWithPrism($request, $task, $user, $userRole, $startTime);
+            return $this->handleWithPrism($request, $task, $user, $userRole, $startTime, $conversationId);
         }
 
         // Fall back to legacy OllamaClient
-        return $this->handleWithLegacyClient($request, $task, $user, $userRole, $startTime);
+        return $this->handleWithLegacyClient($request, $task, $user, $userRole, $startTime, $conversationId);
     }
 
     /**
@@ -154,15 +155,16 @@ class MedGemmaController extends Controller
         string $task,
         $user,
         string $userRole,
-        float $startTime
+        float $startTime,
+        ?string $conversationId = null
     ): JsonResponse {
         try {
             // Build context using existing ContextBuilder
             $context = $this->contextBuilder->build($task, $request->all());
 
-            // Check cache first
+            // Check cache first (skip if conversation is being continued)
             $cacheKey = $this->cacheService->generateKey($task, $context, $request->all());
-            $cachedResponse = $this->cacheService->get($cacheKey, $task);
+            $cachedResponse = $conversationId ? null : $this->cacheService->get($cacheKey, $task);
 
             if ($cachedResponse !== null) {
                 $latencyMs = round((microtime(true) - $startTime) * 1000);
@@ -182,6 +184,7 @@ class MedGemmaController extends Controller
                     'response' => $cachedResponse['response'],
                     'structured' => $cachedResponse['structured'] ?? false,
                     'request_id' => $cachedResponse['request_id'],
+                    'conversation_id' => $conversationId ?? Str::uuid()->toString(),
                     'metadata' => array_merge($cachedResponse['metadata'], [
                         'from_cache' => true,
                         'latency_ms' => $latencyMs,
@@ -224,6 +227,9 @@ class MedGemmaController extends Controller
             // Calculate latency
             $latencyMs = round((microtime(true) - $startTime) * 1000);
 
+            // Generate or reuse conversation ID
+            $responseConversationId = $conversationId ?? Str::uuid()->toString();
+
             // Log the request
             $aiRequest = $this->logRequest([
                 'user_id' => $user->id,
@@ -243,6 +249,7 @@ class MedGemmaController extends Controller
                     'provider' => 'prism',
                     'structured_output' => isset($this->taskSchemas[$task]),
                     'warnings' => $validationResult['warnings'],
+                    'conversation_id' => $responseConversationId,
                 ],
             ]);
 
@@ -251,8 +258,10 @@ class MedGemmaController extends Controller
                 'success' => true,
                 'task' => $task,
                 'response' => is_array($content) ? $content : $validationResult['output'],
+                'output' => is_array($content) ? $content : $validationResult['output'], // Alias for frontend compatibility
                 'structured' => is_array($content),
                 'request_id' => $aiRequest->request_uuid,
+                'conversation_id' => $responseConversationId,
                 'metadata' => [
                     'provider' => 'prism',
                     'model' => config('ai.providers.ollama.model'),
@@ -264,8 +273,8 @@ class MedGemmaController extends Controller
                 ],
             ];
 
-            // Cache the response if validation passed and no modifications
-            if ($validationResult['valid'] && empty($validationResult['blocked'])) {
+            // Cache the response if validation passed and no modifications (and not a conversation)
+            if ($validationResult['valid'] && empty($validationResult['blocked']) && !$conversationId) {
                 $this->cacheService->put($cacheKey, $responseData, $task);
             }
 
@@ -304,7 +313,7 @@ class MedGemmaController extends Controller
                 Log::info('Falling back to legacy OllamaClient due to error', [
                     'error_category' => $errorResult['category'],
                 ]);
-                return $this->handleWithLegacyClient($request, $task, $user, $userRole, $startTime);
+                return $this->handleWithLegacyClient($request, $task, $user, $userRole, $startTime, $conversationId);
             }
 
             if ($errorResult['recovery_strategy'] === 'cache') {
@@ -314,6 +323,7 @@ class MedGemmaController extends Controller
                         'error_category' => $errorResult['category'],
                     ]);
                     return response()->json(array_merge($staleCache, [
+                        'conversation_id' => $conversationId ?? Str::uuid()->toString(),
                         'metadata' => array_merge($staleCache['metadata'] ?? [], [
                             'stale_cache' => true,
                             'error' => $errorResult['message'],
@@ -854,7 +864,8 @@ class MedGemmaController extends Controller
         string $task,
         $user,
         string $userRole,
-        float $startTime
+        float $startTime,
+        ?string $conversationId = null
     ): JsonResponse {
         // Build context
         $context = $this->contextBuilder->build($task, $request->all());
@@ -884,6 +895,9 @@ class MedGemmaController extends Controller
             $userRole
         );
 
+        // Generate or reuse conversation ID
+        $responseConversationId = $conversationId ?? Str::uuid()->toString();
+
         // Log the request
         $aiRequest = $this->logRequest([
             'user_id' => $user->id,
@@ -904,6 +918,7 @@ class MedGemmaController extends Controller
                 'warnings' => $validationResult['warnings'],
                 'blocked' => $validationResult['blocked'],
                 'eval_count' => $generateResult['metadata']['eval_count'],
+                'conversation_id' => $responseConversationId,
             ],
         ]);
 
@@ -911,7 +926,9 @@ class MedGemmaController extends Controller
             'success' => true,
             'task' => $task,
             'response' => $validationResult['output'],
+            'output' => $validationResult['output'], // Alias for frontend compatibility
             'request_id' => $aiRequest->request_uuid,
+            'conversation_id' => $responseConversationId,
             'metadata' => [
                 'prompt_version' => $promptResult['version'],
                 'model' => $generateResult['metadata']['model'],
@@ -974,7 +991,7 @@ class MedGemmaController extends Controller
         $user = Auth::user();
         
         // Only allow admins and doctors to access monitoring
-        if (!in_array($user->role, ['admin', 'doctor'])) {
+        if (!$user->hasAnyRole(['admin', 'doctor'])) {
             return response()->json([
                 'success' => false,
                 'error' => 'Unauthorized access to monitoring data',

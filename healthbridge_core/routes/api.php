@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\Ai\MedGemmaController;
 use App\Http\Controllers\Api\Auth\MobileAuthController;
 use App\Http\Controllers\Api\CouchProxyController;
+use App\Http\Controllers\GP\ReportController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -124,4 +125,33 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->prefix('couchdb')->group(fu
     // Handles: GET, PUT, DELETE /api/couchdb/{id}
     Route::match(['GET', 'PUT', 'DELETE', 'POST'], '/{id}', [CouchProxyController::class, 'document'])
         ->where('id', '.*');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Report Generation API Routes
+|--------------------------------------------------------------------------
+|
+| These endpoints generate clinical reports (discharge, handover, referral)
+| for the nurse mobile app. Uses Sanctum authentication.
+|
+*/
+Route::middleware(['auth:sanctum', 'throttle:api'])->prefix('reports')->group(function () {
+    // Discharge Summary PDF
+    Route::post('/sessions/{sessionCouchId}/discharge', [ReportController::class, 'dischargePdf']);
+    
+    // Clinical Handover PDF
+    Route::post('/sessions/{sessionCouchId}/handover', [ReportController::class, 'handoverPdf']);
+    
+    // Referral Report PDF
+    Route::post('/sessions/{sessionCouchId}/referral', [ReportController::class, 'referralPdf']);
+    
+    // Comprehensive Report PDF
+    Route::post('/sessions/{sessionCouchId}/comprehensive', [ReportController::class, 'comprehensivePdf']);
+    
+    // Get stored reports for a session
+    Route::get('/sessions/{sessionCouchId}/stored', [ReportController::class, 'getSessionReports']);
+    
+    // Get a specific stored report
+    Route::get('/stored/{reportId}', [ReportController::class, 'getStoredReport']);
 });

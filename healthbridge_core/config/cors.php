@@ -15,7 +15,8 @@ return [
     |
     */
 
-    'paths' => ['api', 'api/', 'api/*', 'sanctum/csrf-cookie'],
+    // Include broadcasting/auth for WebSocket channel authentication
+    'paths' => ['api', 'api/', 'api/*', 'sanctum/csrf-cookie', 'broadcasting/auth'],
 
     'allowed_methods' => ['*'],
 
@@ -28,12 +29,16 @@ return [
         'http://localhost:3003',
         'http://localhost:3004',
         'http://localhost:3005',
+        'http://localhost:8000',   // Laravel serve default
+        'http://localhost:5173',   // Vite dev server
         'http://127.0.0.1:3000',
         'http://127.0.0.1:3001',
         'http://127.0.0.1:3002',
         'http://127.0.0.1:3003',
         'http://127.0.0.1:3004',
         'http://127.0.0.1:3005',
+        'http://127.0.0.1:5173',   // Vite dev server
+        'http://127.0.0.1:8000',   // Laravel serve default
         'http://127.0.0.1:5984'
     ],
 

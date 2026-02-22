@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import axios from 'axios';
 
 interface Medication {
     id: string;
@@ -31,6 +30,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
     (e: 'update', medications: Medication[]): void;
     (e: 'save', medications: Medication[]): void;
+    (e: 'tabChange', tab: string): void;
 }>();
 
 // Local state
@@ -125,16 +125,53 @@ const removeMedication = (id: string) => {
     emit('update', medications.value);
 };
 
-// Save treatment plan
+// Get CSRF token from meta tag
+const getCsrfToken = (): string => {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.getAttribute('content') || '' : '';
+};
+
+// Save prescription and navigate to Reports tab
 const saveTreatmentPlan = async () => {
+    if (medications.value.length === 0) {
+        return;
+    }
+    
     isSaving.value = true;
+    
     try {
-        await axios.put(`/gp/sessions/${props.sessionCouchId}/treatment-plan`, {
-            treatment_plan: medications.value,
+        const response = await fetch(`/gp/prescriptions/sessions/${props.sessionCouchId}/save-and-redirect`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': getCsrfToken(),
+            },
+            body: JSON.stringify({
+                medications: medications.value.map(med => ({
+                    name: med.name,
+                    dose: med.dose,
+                    route: med.route,
+                    frequency: med.frequency,
+                    duration: med.duration,
+                    instructions: med.instructions,
+                })),
+            }),
         });
-        emit('save', medications.value);
+
+        const result = await response.json();
+
+        if (result.success) {
+            emit('save', medications.value);
+            // Navigate to Reports tab
+            emit('tabChange', 'reports');
+        } else {
+            console.error('Failed to save prescription:', result.error || result.message);
+            // Show error to user
+            alert('Failed to save prescription: ' + (result.error || result.message));
+        }
     } catch (error) {
-        console.error('Failed to save treatment plan:', error);
+        console.error('Failed to save prescription:', error);
     } finally {
         isSaving.value = false;
     }

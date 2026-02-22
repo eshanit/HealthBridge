@@ -1,0 +1,672 @@
+{
+  "$comment": "Pediatric Respiratory Assessment with X-ray Triage and Discharge - AUTO-GENERATED",
+  "id": "peds_respiratory_xray_triage",
+  "version": "2.0.0",
+  "title": "Pediatric Respiratory Assessment with X-ray Triage and Discharge",
+  "description": "Complete IMCI-based assessment plus X-ray acquisition, AI triage, referral guidance, treatment course, and discharge workflow",
+  "protocol": "WHO_IMCI + XRAY_TRIAGE + DISCHARGE",
+  "applicableAgeRange": {
+    "minMonths": 2,
+    "maxMonths": 59
+  },
+  "estimatedCompletionMinutes": 25,
+
+  "workflow": [
+    { "id": "admission", "name": "Patient Admission", "clinicalStep": 1, "allowedTransitions": ["clinical_assessment"] },
+    { "id": "clinical_assessment", "name": "Clinical Assessment", "clinicalStep": 2, "allowedTransitions": ["xray_acquisition"] },
+    { "id": "xray_acquisition", "name": "X-ray Acquisition", "clinicalStep": 3, "allowedTransitions": ["ai_triage"] },
+    { "id": "ai_triage", "name": "AI X-ray Triage", "clinicalStep": 4, "allowedTransitions": ["referral_decision"] },
+    { "id": "referral_decision", "name": "Referral Decision", "clinicalStep": 5, "allowedTransitions": ["treatment_course"] },
+    { "id": "treatment_course", "name": "Treatment Course", "clinicalStep": 6, "allowedTransitions": ["discharge_summary"] },
+    { "id": "discharge_summary", "name": "Discharge Summary", "clinicalStep": 7, "allowedTransitions": ["discharge_medications"] },
+    { "id": "discharge_medications", "name": "Discharge Medications", "clinicalStep": 8, "allowedTransitions": ["patient_education"] },
+    { "id": "patient_education", "name": "Patient Education", "clinicalStep": 9, "allowedTransitions": ["follow_up"] },
+    { "id": "follow_up", "name": "Follow-up Appointment", "clinicalStep": 10, "allowedTransitions": ["discharge_checklist"] },
+    { "id": "discharge_checklist", "name": "Discharge Checklist", "clinicalStep": 11, "allowedTransitions": ["discharge_disposition"] },
+    { "id": "discharge_disposition", "name": "Discharge Disposition", "clinicalStep": 12, "allowedTransitions": ["discharge_signoff"] },
+    { "id": "discharge_signoff", "name": "Discharge Sign-off", "clinicalStep": 13, "allowedTransitions": ["complete"] },
+    { "id": "complete", "name": "Complete", "clinicalStep": 14, "allowedTransitions": [] }
+  ],
+
+  "sections": [
+    {
+      "id": "admission",
+      "title": "Patient Admission",
+      "description": "Initial patient admission information and vital signs",
+      "icon": "🏥",
+      "fields": [
+        "admission_date", "admission_time", "patient_id", "patient_name", 
+        "patient_age_months", "patient_weight_kg", "chief_complaint",
+        "admitting_diagnosis", "admission_type", "referred_from"
+      ]
+    },
+    {
+      "id": "clinical_assessment",
+      "title": "Clinical Assessment (IMCI)",
+      "description": "Essential IMCI danger signs and respiratory findings",
+      "icon": "🩺",
+      "fields": [
+        "unable_to_drink", "vomits_everything", "convulsions", "lethargic_unconscious",
+        "cough_present", "cough_duration_days", "fever_present",
+        "resp_rate", "oxygen_sat", "retractions", "cyanosis"
+      ]
+    },
+    {
+      "id": "xray_acquisition",
+      "title": "X-ray Acquisition",
+      "description": "Details of the chest X-ray performed",
+      "icon": "📸",
+      "fields": [
+        "xray_view", "xray_quality", "xray_image_id", "xray_image_url", "xray_time"
+      ]
+    },
+    {
+      "id": "ai_triage",
+      "title": "AI X-ray Triage",
+      "description": "AI-generated findings and urgency assessment",
+      "icon": "🤖",
+      "fields": [
+        "ai_findings", "ai_confidence", "ai_urgency", "ai_recommendation"
+      ]
+    },
+    {
+      "id": "referral_decision",
+      "title": "Referral Decision",
+      "description": "Decision to refer to specialist radiologist and urgency",
+      "icon": "📤",
+      "fields": [
+        "referral_required", "referral_urgency", "referral_reason",
+        "referral_facility", "transport_arranged"
+      ]
+    },
+    {
+      "id": "treatment_course",
+      "title": "Treatment Course",
+      "description": "Treatment administered and clinical progress",
+      "icon": "💊",
+      "fields": [
+        "treatment_given", "treatment_response", "clinical_progress",
+        "complications_noted", "treatment_duration_hours"
+      ]
+    },
+    {
+      "id": "discharge_summary",
+      "title": "Discharge Summary",
+      "description": "Summary of hospital course and discharge condition",
+      "icon": "📋",
+      "fields": [
+        "discharge_date", "discharge_time", "discharge_condition", 
+        "discharge_diagnosis", "summary_of_stay", "procedures_performed",
+        "clinical_outcome"
+      ]
+    },
+    {
+      "id": "discharge_medications",
+      "title": "Discharge Medications",
+      "description": "Medications prescribed at discharge",
+      "icon": "💊",
+      "fields": [
+        "discharge_meds_list", "medication_count", "medications_verified"
+      ]
+    },
+    {
+      "id": "patient_education",
+      "title": "Patient Education",
+      "description": "Education provided to caregiver about home care",
+      "icon": "📚",
+      "fields": [
+        "education_provided", "warning_signs_discussed", "red_flags_explained",
+        "care_instructions_given", "caregiver_questions_answered"
+      ]
+    },
+    {
+      "id": "follow_up",
+      "title": "Follow-up Appointment",
+      "description": "Scheduled follow-up appointment details",
+      "icon": "📅",
+      "fields": [
+        "follow_up_required", "follow_up_date", "follow_up_facility",
+        "follow_up_provider", "follow_up_reason"
+      ]
+    },
+    {
+      "id": "discharge_checklist",
+      "title": "Discharge Checklist",
+      "description": "Required discharge checklist items",
+      "icon": "✅",
+      "fields": [
+        "checklist_vitals_stable", "checklist_meds_reconciled", 
+        "checklist_documents_complete", "checklist_education_complete",
+        "checklist_follow_up_scheduled"
+      ]
+    },
+    {
+      "id": "discharge_disposition",
+      "title": "Discharge Disposition",
+      "description": "Patient discharge destination and status",
+      "icon": "🚪",
+      "fields": [
+        "discharge_disposition", "discharge_destination", "transport_mode",
+        "escort_required", "accompanying_person"
+      ]
+    },
+    {
+      "id": "discharge_signoff",
+      "title": "Discharge Sign-off",
+      "description": "Patient/caregiver acknowledgment and provider sign-off",
+      "icon": "✍️",
+      "fields": [
+        "caregiver_signoff", "caregiver_name", "caregiver_relationship",
+        "signoff_datetime", "nurse_name", "nurse_signature",
+        "discharge_complete"
+      ]
+    }
+  ],
+
+  "fields": [
+    {
+      "id": "patient_id",
+      "type": "text",
+      "label": "Patient ID",
+      "required": false
+    },
+    {
+      "id": "patient_name",
+      "type": "text",
+      "label": "Patient Name",
+      "required": true
+    },
+    {
+      "id": "patient_age_months",
+      "type": "number",
+      "label": "Age (months)",
+      "required": true,
+      "config": { "min": 2, "max": 59, "step": 1 }
+    },
+    {
+      "id": "patient_weight_kg",
+      "type": "number",
+      "label": "Weight (kg)",
+      "required": true,
+      "config": { "min": 1, "max": 99.9, "step": 0.1 }
+    },
+    {
+      "id": "chief_complaint",
+      "type": "text",
+      "label": "Chief Complaint",
+      "required": true,
+      "placeholder": "e.g., cough, difficulty breathing"
+    },
+    {
+      "id": "unable_to_drink",
+      "type": "checkbox",
+      "label": "Unable to drink/breastfeed",
+      "clinicalNote": "General danger sign"
+    },
+    {
+      "id": "vomits_everything",
+      "type": "checkbox",
+      "label": "Vomits everything"
+    },
+    {
+      "id": "convulsions",
+      "type": "checkbox",
+      "label": "History of convulsions"
+    },
+    {
+      "id": "lethargic_unconscious",
+      "type": "checkbox",
+      "label": "Lethargic or unconscious"
+    },
+    {
+      "id": "cough_present",
+      "type": "checkbox",
+      "label": "Cough present"
+    },
+    {
+      "id": "cough_duration_days",
+      "type": "number",
+      "label": "Cough duration (days)",
+      "config": { "min": 0, "max": 90, "step": 1 },
+      "visibleIf": { "field": "cough_present", "operator": "eq", "value": true }
+    },
+    {
+      "id": "fever_present",
+      "type": "checkbox",
+      "label": "Fever present"
+    },
+    {
+      "id": "resp_rate",
+      "type": "number",
+      "label": "Respiratory rate (breaths/min)",
+      "required": true,
+      "config": { "min": 10, "max": 120, "step": 1 }
+    },
+    {
+      "id": "oxygen_sat",
+      "type": "number",
+      "label": "Oxygen saturation (%)",
+      "config": { "min": 70, "max": 100, "step": 1 }
+    },
+    {
+      "id": "retractions",
+      "type": "checkbox",
+      "label": "Chest indrawing"
+    },
+    {
+      "id": "cyanosis",
+      "type": "checkbox",
+      "label": "Cyanosis"
+    },
+    {
+      "id": "xray_view",
+      "type": "select",
+      "label": "X-ray view",
+      "options": ["PA", "AP", "Lateral", "Other"],
+      "required": true
+    },
+    {
+      "id": "xray_quality",
+      "type": "select",
+      "label": "X-ray quality",
+      "options": ["Good", "Adequate", "Poor"],
+      "required": true
+    },
+    {
+      "id": "xray_image_id",
+      "type": "text",
+      "label": "Image ID / filename",
+      "required": true
+    },
+    {
+      "id": "xray_image_url",
+      "type": "text",
+      "label": "X-ray image URL or file path",
+      "description": "Reference to the uploaded X-ray image file",
+      "required": true
+    },
+    {
+      "id": "xray_time",
+      "type": "datetime",
+      "label": "Time of X-ray",
+      "required": true
+    },
+    {
+      "id": "ai_findings",
+      "type": "multiselect",
+      "label": "AI-detected findings",
+      "options": [
+        "Normal",
+        "Airspace opacity (pneumonia)",
+        "Interstitial pattern",
+        "Pleural effusion",
+        "Pneumothorax",
+        "Cardiomegaly",
+        "Other"
+      ],
+      "required": true
+    },
+    {
+      "id": "ai_confidence",
+      "type": "number",
+      "label": "AI confidence (0-1)",
+      "config": { "min": 0, "max": 1, "step": 0.01 }
+    },
+    {
+      "id": "ai_urgency",
+      "type": "select",
+      "label": "AI urgency recommendation",
+      "options": ["Routine", "Priority", "Emergency"]
+    },
+    {
+      "id": "ai_recommendation",
+      "type": "textarea",
+      "label": "AI recommendation text",
+      "placeholder": "AI-generated explanation..."
+    },
+    {
+      "id": "referral_required",
+      "type": "checkbox",
+      "label": "Referral to specialist radiologist required"
+    },
+    {
+      "id": "referral_urgency",
+      "type": "select",
+      "label": "Referral urgency",
+      "options": ["Routine", "Urgent", "Emergency"],
+      "visibleIf": { "field": "referral_required", "operator": "eq", "value": true }
+    },
+    {
+      "id": "referral_reason",
+      "type": "textarea",
+      "label": "Reason for referral",
+      "visibleIf": { "field": "referral_required", "operator": "eq", "value": true }
+    },
+    {
+      "id": "referral_facility",
+      "type": "text",
+      "label": "Referred to facility",
+      "visibleIf": { "field": "referral_required", "operator": "eq", "value": true }
+    },
+    {
+      "id": "transport_arranged",
+      "type": "checkbox",
+      "label": "Transport arranged",
+      "visibleIf": { "field": "referral_required", "operator": "eq", "value": true }
+    },
+    {
+      "id": "admission_date",
+      "type": "date",
+      "label": "Admission Date",
+      "required": true
+    },
+    {
+      "id": "admission_time",
+      "type": "time",
+      "label": "Admission Time",
+      "required": true
+    },
+    {
+      "id": "admitting_diagnosis",
+      "type": "text",
+      "label": "Admitting Diagnosis",
+      "required": true
+    },
+    {
+      "id": "admission_type",
+      "type": "select",
+      "label": "Type of Admission",
+      "options": ["Emergency", "Urgent", "Elective", "Transfer"],
+      "required": true
+    },
+    {
+      "id": "referred_from",
+      "type": "text",
+      "label": "Referred From"
+    },
+    {
+      "id": "treatment_given",
+      "type": "multiselect",
+      "label": "Treatment Given",
+      "options": ["Antibiotics", "Oxygen Therapy", "Bronchodilators", "Corticosteroids", "Antipyretics", "IV Fluids", "Nebulization", "Other"]
+    },
+    {
+      "id": "treatment_response",
+      "type": "select",
+      "label": "Response to Treatment",
+      "options": ["Full Recovery", "Partial Improvement", "No Change", "Deterioration"],
+      "required": true
+    },
+    {
+      "id": "clinical_progress",
+      "type": "textarea",
+      "label": "Clinical Progress Notes"
+    },
+    {
+      "id": "complications_noted",
+      "type": "textarea",
+      "label": "Complications Noted"
+    },
+    {
+      "id": "treatment_duration_hours",
+      "type": "number",
+      "label": "Treatment Duration (hours)",
+      "config": { "min": 0, "max": 8760, "step": 1 }
+    },
+    {
+      "id": "discharge_date",
+      "type": "date",
+      "label": "Discharge Date",
+      "required": true
+    },
+    {
+      "id": "discharge_time",
+      "type": "time",
+      "label": "Discharge Time",
+      "required": true
+    },
+    {
+      "id": "discharge_condition",
+      "type": "select",
+      "label": "Discharge Condition",
+      "options": ["Recovered", "Improved", "Stable", "Unchanged", "AMA"],
+      "required": true
+    },
+    {
+      "id": "discharge_diagnosis",
+      "type": "text",
+      "label": "Discharge Diagnosis",
+      "required": true
+    },
+    {
+      "id": "summary_of_stay",
+      "type": "textarea",
+      "label": "Summary of Hospital Stay",
+      "required": true
+    },
+    {
+      "id": "procedures_performed",
+      "type": "textarea",
+      "label": "Procedures Performed"
+    },
+    {
+      "id": "clinical_outcome",
+      "type": "select",
+      "label": "Clinical Outcome",
+      "options": ["Discharged to home", "Transferred to another facility", "Deceased", "AMA"],
+      "required": true
+    },
+    {
+      "id": "discharge_meds_list",
+      "type": "textarea",
+      "label": "Discharge Medications List",
+      "description": "List all medications with dosages and instructions",
+      "required": true
+    },
+    {
+      "id": "medication_count",
+      "type": "number",
+      "label": "Number of Medications",
+      "config": { "min": 0, "max": 20, "step": 1 }
+    },
+    {
+      "id": "medications_verified",
+      "type": "checkbox",
+      "label": "Medications verified with pharmacist"
+    },
+    {
+      "id": "education_provided",
+      "type": "checkbox",
+      "label": "Discharge education provided to caregiver"
+    },
+    {
+      "id": "warning_signs_discussed",
+      "type": "checkbox",
+      "label": "Warning signs discussed"
+    },
+    {
+      "id": "red_flags_explained",
+      "type": "checkbox",
+      "label": "Red flags explained"
+    },
+    {
+      "id": "care_instructions_given",
+      "type": "checkbox",
+      "label": "Written care instructions provided"
+    },
+    {
+      "id": "caregiver_questions_answered",
+      "type": "checkbox",
+      "label": "Caregiver questions answered"
+    },
+    {
+      "id": "follow_up_required",
+      "type": "checkbox",
+      "label": "Follow-up required",
+      "required": true
+    },
+    {
+      "id": "follow_up_date",
+      "type": "date",
+      "label": "Follow-up Date",
+      "visibleIf": { "field": "follow_up_required", "operator": "eq", "value": true }
+    },
+    {
+      "id": "follow_up_facility",
+      "type": "text",
+      "label": "Follow-up Facility",
+      "visibleIf": { "field": "follow_up_required", "operator": "eq", "value": true }
+    },
+    {
+      "id": "follow_up_provider",
+      "type": "text",
+      "label": "Follow-up Provider",
+      "visibleIf": { "field": "follow_up_required", "operator": "eq", "value": true }
+    },
+    {
+      "id": "follow_up_reason",
+      "type": "text",
+      "label": "Reason for Follow-up",
+      "visibleIf": { "field": "follow_up_required", "operator": "eq", "value": true }
+    },
+    {
+      "id": "checklist_vitals_stable",
+      "type": "checkbox",
+      "label": "Vitals stable before discharge"
+    },
+    {
+      "id": "checklist_meds_reconciled",
+      "type": "checkbox",
+      "label": "Medications reconciled"
+    },
+    {
+      "id": "checklist_documents_complete",
+      "type": "checkbox",
+      "label": "Discharge documents complete"
+    },
+    {
+      "id": "checklist_education_complete",
+      "type": "checkbox",
+      "label": "Patient education complete"
+    },
+    {
+      "id": "checklist_follow_up_scheduled",
+      "type": "checkbox",
+      "label": "Follow-up appointment scheduled"
+    },
+    {
+      "id": "discharge_disposition",
+      "type": "select",
+      "label": "Discharge Disposition",
+      "options": ["Home", "Transfer to hospital", "Transfer to LTC", "Against medical advice", "Deceased"],
+      "required": true
+    },
+    {
+      "id": "discharge_destination",
+      "type": "text",
+      "label": "Discharge Destination (address/facility)"
+    },
+    {
+      "id": "transport_mode",
+      "type": "select",
+      "label": "Mode of Transport",
+      "options": ["Walking", "Private vehicle", "Ambulance", "Public transport", "Taxi"]
+    },
+    {
+      "id": "escort_required",
+      "type": "checkbox",
+      "label": "Escort required"
+    },
+    {
+      "id": "accompanying_person",
+      "type": "text",
+      "label": "Accompanying Person Name"
+    },
+    {
+      "id": "caregiver_signoff",
+      "type": "checkbox",
+      "label": "Caregiver acknowledges receipt of patient and discharge instructions",
+      "required": true
+    },
+    {
+      "id": "caregiver_name",
+      "type": "text",
+      "label": "Caregiver Name",
+      "required": true
+    },
+    {
+      "id": "caregiver_relationship",
+      "type": "select",
+      "label": "Relationship to Patient",
+      "options": ["Mother", "Father", "Grandmother", "Grandfather", "Guardian", "Other"],
+      "required": true
+    },
+    {
+      "id": "signoff_datetime",
+      "type": "datetime",
+      "label": "Sign-off Date/Time",
+      "required": true
+    },
+    {
+      "id": "nurse_name",
+      "type": "text",
+      "label": "Discharging Nurse Name",
+      "required": true
+    },
+    {
+      "id": "nurse_signature",
+      "type": "checkbox",
+      "label": "Nurse signature confirmed",
+      "required": true
+    },
+    {
+      "id": "discharge_complete",
+      "type": "checkbox",
+      "label": "Discharge process complete",
+      "required": true
+    }
+  ],
+
+  "calculations": [
+    {
+      "id": "fast_breathing",
+      "name": "Fast Breathing Check",
+      "expression": {
+        "conditions": [
+          { "if": "patient_age_months < 12 && resp_rate >= 50", "then": true },
+          { "if": "patient_age_months >= 12 && resp_rate >= 40", "then": true },
+          { "if": "resp_rate < 40", "then": false }
+        ]
+      },
+      "dependsOn": ["patient_age_months", "resp_rate"]
+    },
+    {
+      "id": "clinical_urgency",
+      "name": "Clinical Urgency (IMCI)",
+      "expression": {
+        "conditions": [
+          { "if": "unable_to_drink || vomits_everything || convulsions || lethargic_unconscious || cyanosis", "then": "emergency" },
+          { "if": "fast_breathing || retractions", "then": "priority" },
+          { "if": "true", "then": "routine" }
+        ]
+      },
+      "dependsOn": ["unable_to_drink", "vomits_everything", "convulsions", "lethargic_unconscious", "cyanosis", "fast_breathing", "retractions"]
+    }
+  ],
+
+  "triageLogic": [
+    {
+      "id": "final_urgency",
+      "name": "Final Urgency (clinical + AI)",
+      "conditions": ["clinical_urgency", "ai_urgency"],
+      "priority": "highest_of_both",
+      "actions": ["refer_if_needed"]
+    }
+  ],
+
+  "metadata": {
+    "created": "2025-01-01T00:00:00Z",
+    "lastUpdated": "2026-02-22T14:40:00Z",
+    "notes": "Complete pediatric respiratory workflow with X-ray triage, treatment course, and full discharge process from admission to sign-off"
+  }
+}

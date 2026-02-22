@@ -52,7 +52,7 @@ class LoginResponse implements LoginResponseContract
 
         // Check if user has the 'radiologist' role
         if ($user->hasRole('radiologist')) {
-            return '/radiology';
+            return '/radiology/dashboard';
         }
 
         // Check if user has the 'dermatologist' role

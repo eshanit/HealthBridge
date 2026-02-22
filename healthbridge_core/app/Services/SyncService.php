@@ -6,7 +6,9 @@ use App\Models\Patient;
 use App\Models\ClinicalSession;
 use App\Models\ClinicalForm;
 use App\Models\AiRequest;
+use App\Models\StoredReport;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class SyncService
 {
@@ -33,6 +35,7 @@ class SyncService
                 'clinicalSession' => $this->syncSession($doc),
                 'clinicalForm' => $this->syncForm($doc),
                 'aiLog' => $this->syncAiLog($doc),
+                'clinicalReport' => $this->syncReport($doc),
                 default => $this->handleUnknown($doc),
             };
         } catch (\Exception $e) {
@@ -273,6 +276,67 @@ class SyncService
             'user_id' => $userId,
             'role' => $role,
             'form_section' => $formSectionId,
+        ]);
+    }
+
+    /**
+     * Sync a clinical report document.
+     * 
+     * Clinical reports are AI-generated documents that include:
+     * - Discharge summaries
+     * - Clinical handovers (SBAR format)
+     * - Referral reports
+     * - Comprehensive reports
+     * 
+     * These reports are stored in CouchDB for offline access and
+     * synced to MySQL for the GP dashboard and audit purposes.
+     */
+    protected function syncReport(array $doc): void
+    {
+        $reportType = $doc['report_type'] ?? 'unknown';
+        
+        // Generate UUID if not present
+        $reportUuid = $doc['report_uuid'] ?? $doc['reportUuid'] ?? null;
+        if (!$reportUuid) {
+            $reportUuid = (string) Str::uuid();
+        }
+        
+        $data = [
+            'report_uuid' => $reportUuid,
+            'couch_id' => $doc['_id'],
+            'report_type' => $reportType,
+            'session_couch_id' => $doc['session_couch_id'] ?? $doc['sessionCouchId'] ?? $doc['session_id'] ?? null,
+            'patient_cpt' => $doc['patient_cpt'] ?? $doc['patientCpt'] ?? $doc['patient_id'] ?? null,
+            'filename' => $doc['filename'] ?? null,
+            'mime_type' => $doc['mime_type'] ?? $doc['mimeType'] ?? 'application/pdf',
+            'size_bytes' => $doc['size'] ?? $doc['size_bytes'] ?? $doc['sizeBytes'] ?? 0,
+            'pdf_base64' => $doc['pdf_base64'] ?? $doc['pdfBase64'] ?? null,
+            'pdf_path' => $doc['pdf_path'] ?? $doc['pdfPath'] ?? null,
+            'html_content' => $doc['html_content'] ?? $doc['htmlContent'] ?? null,
+            'generated_at' => $this->parseTimestamp($doc['generated_at'] ?? $doc['generatedAt'] ?? $doc['created_at'] ?? null),
+            'generated_by_name' => $doc['generated_by_name'] ?? $doc['generatedByName'] ?? $doc['author'] ?? null,
+            'synced' => true,
+            'synced_at' => now(),
+            'couch_updated_at' => $this->parseTimestamp($doc['updated_at'] ?? $doc['updatedAt'] ?? null),
+            'raw_document' => $doc,
+        ];
+        
+        // Resolve the user who generated the report
+        $generatedBy = $doc['generated_by'] ?? $doc['generatedBy'] ?? $doc['generated_by_user_id'] ?? $doc['author_id'] ?? null;
+        if ($generatedBy) {
+            $data['generated_by_user_id'] = $this->resolveUserId($generatedBy);
+        }
+        
+        StoredReport::updateOrCreate(
+            ['couch_id' => $doc['_id']],
+            $data
+        );
+        
+        Log::debug('SyncService: Synced clinical report', [
+            'id' => $doc['_id'],
+            'type' => $reportType,
+            'session' => $data['session_couch_id'],
+            'patient' => $data['patient_cpt'],
         ]);
     }
 

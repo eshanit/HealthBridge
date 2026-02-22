@@ -9,6 +9,7 @@ import TimelineView from './TimelineView.vue';
 import StructuredPrescription from './StructuredPrescription.vue';
 import InteractiveAIGuidance from './InteractiveAIGuidance.vue';
 import ClinicalCalculators from './ClinicalCalculators.vue';
+import ReportActions from './ReportActions.vue';
 
 interface Patient {
     id: string;
@@ -39,6 +40,8 @@ interface Props {
     allergies?: string[];
     readOnly?: boolean; // When true, tabs are in view-only mode
     sessionCouchId?: string; // The clinical session's CouchDB ID for API calls
+    hasReferral?: boolean; // Whether the patient has a referral
+    workflowState?: string; // Current workflow state
 }
 
 const props = defineProps<Props>();
@@ -54,6 +57,7 @@ const tabs = [
     { id: 'diagnostics', label: 'Diagnostics', icon: '🔬' },
     { id: 'treatment', label: 'Treatment', icon: '💊' },
     { id: 'prescription', label: 'Prescription', icon: '📝' },
+    { id: 'reports', label: 'Reports', icon: '📄' },
     { id: 'timeline', label: 'Timeline', icon: '📅' },
     { id: 'ai_guidance', label: 'AI Guidance', icon: '🤖' },
     { id: 'calculators', label: 'Calculators', icon: '🔢' },
@@ -65,6 +69,10 @@ const selectTab = (tabId: string) => {
 
 const handleAITask = (task: string) => {
     emit('aiTask', task);
+};
+
+const handleTabChange = (tab: string) => {
+    emit('update:activeTab', tab);
 };
 </script>
 
@@ -92,75 +100,101 @@ const handleAITask = (task: string) => {
 
         <!-- Tab Content -->
         <div class="flex-1 overflow-y-auto p-4">
-            <SummaryTab
-                v-if="activeTab === 'summary'"
-                :patient="patient"
-                :chief-complaint="chiefComplaint"
-                :medical-history="medicalHistory"
-                :current-medications="currentMedications"
-                :allergies="allergies"
-                @ai-task="handleAITask"
-            />
+            <!-- Use v-show for form tabs to preserve state across tab switches -->
+            <div v-show="activeTab === 'summary'">
+                <SummaryTab
+                    :patient="patient"
+                    :chief-complaint="chiefComplaint"
+                    :medical-history="medicalHistory"
+                    :current-medications="currentMedications"
+                    :allergies="allergies"
+                    @ai-task="handleAITask"
+                />
+            </div>
             
-            <AssessmentTab
-                v-else-if="activeTab === 'assessment'"
-                :patient="patient"
-                :read-only="readOnly"
-            />
+            <div v-show="activeTab === 'assessment'">
+                <AssessmentTab
+                    :patient="patient"
+                    :read-only="readOnly"
+                    :session-couch-id="sessionCouchId"
+                    @tab-change="handleTabChange"
+                />
+            </div>
             
-            <DiagnosticsTab
-                v-else-if="activeTab === 'diagnostics'"
-                :patient="patient"
-                :read-only="readOnly"
-            />
+            <div v-show="activeTab === 'diagnostics'">
+                <DiagnosticsTab
+                    :patient="patient"
+                    :read-only="readOnly"
+                    :session-couch-id="sessionCouchId"
+                    @tab-change="handleTabChange"
+                />
+            </div>
             
-            <TreatmentTab
-                v-else-if="activeTab === 'treatment'"
-                :patient="patient"
-                :read-only="readOnly"
-                :session-couch-id="sessionCouchId"
-            />
+            <div v-show="activeTab === 'treatment'">
+                <TreatmentTab
+                    :patient="patient"
+                    :read-only="readOnly"
+                    :session-couch-id="sessionCouchId"
+                    @tab-change="handleTabChange"
+                />
+            </div>
             
             <!-- Structured Prescription Tab - Disabled in view-only mode -->
-            <div v-else-if="activeTab === 'prescription' && readOnly" class="text-center py-8 text-muted-foreground">
+            <div v-if="activeTab === 'prescription' && readOnly" class="text-center py-8 text-muted-foreground">
                 <span class="text-4xl">🔒</span>
                 <p class="mt-2 font-medium">Prescription Disabled</p>
                 <p class="text-sm mt-1">Accept the referral to enable prescription writing.</p>
             </div>
-            <StructuredPrescription
-                v-else-if="activeTab === 'prescription' && !readOnly"
-                :session-couch-id="sessionCouchId || patient.id"
-            />
+            <div v-show="activeTab === 'prescription' && !readOnly">
+                <StructuredPrescription
+                    :session-couch-id="sessionCouchId || patient.id"
+                    @tab-change="handleTabChange"
+                />
+            </div>
+            
+            <!-- Reports Tab -->
+            <div v-show="activeTab === 'reports'">
+                <ReportActions
+                    :session-couch-id="sessionCouchId || patient.id"
+                    :patient-cpt="patient.cpt"
+                    :patient-name="patient.name"
+                    :has-referral="hasReferral"
+                    :workflow-state="workflowState"
+                />
+            </div>
             
             <!-- Timeline Tab -->
-            <TimelineView
-                v-else-if="activeTab === 'timeline'"
-                :session-couch-id="sessionCouchId || patient.id"
-            />
+            <div v-show="activeTab === 'timeline'">
+                <TimelineView
+                    :session-couch-id="sessionCouchId || patient.id"
+                />
+            </div>
             
             <!-- Interactive AI Guidance Tab - Disabled in view-only mode -->
-            <div v-else-if="activeTab === 'ai_guidance' && readOnly" class="text-center py-8 text-muted-foreground">
+            <div v-if="activeTab === 'ai_guidance' && readOnly" class="text-center py-8 text-muted-foreground">
                 <span class="text-4xl">🔒</span>
                 <p class="mt-2 font-medium">AI Guidance Disabled</p>
                 <p class="text-sm mt-1">Accept the referral to enable AI assistance.</p>
             </div>
-            <InteractiveAIGuidance
-                v-else-if="activeTab === 'ai_guidance' && !readOnly"
-                :session-couch-id="sessionCouchId || patient.id"
-                :patient-context="{
-                    age: patient.age ?? undefined,
-                    triage_priority: patient.triage_color,
-                    vitals: patient.vitals,
-                    danger_signs: patient.danger_signs
-                }"
-            />
+            <div v-show="activeTab === 'ai_guidance' && !readOnly">
+                <InteractiveAIGuidance
+                    :session-couch-id="sessionCouchId || patient.id"
+                    :patient-context="{
+                        age: patient.age ?? undefined,
+                        triage_priority: patient.triage_color,
+                        vitals: patient.vitals,
+                        danger_signs: patient.danger_signs
+                    }"
+                />
+            </div>
             
             <!-- Clinical Calculators Tab -->
-            <ClinicalCalculators
-                v-else-if="activeTab === 'calculators'"
-                :patient-weight="patient.vitals?.weight"
-                :patient-age-months="patient.age ? patient.age * 12 : undefined"
-            />
+            <div v-show="activeTab === 'calculators'">
+                <ClinicalCalculators
+                    :patient-weight="patient.vitals?.weight"
+                    :patient-age-months="patient.age ? patient.age * 12 : undefined"
+                />
+            </div>
         </div>
     </div>
 </template>

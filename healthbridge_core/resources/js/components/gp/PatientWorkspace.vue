@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import { usePage } from '@inertiajs/vue3';
 import PatientHeader from './PatientHeader.vue';
 import ClinicalTabs from './ClinicalTabs.vue';
 import AIExplainabilityPanel from './AIExplainabilityPanel.vue';
@@ -70,6 +71,15 @@ const activeTab = ref('summary');
 const showAIPanel = ref(true);
 const aiExplanation = ref<string | AIExplanation | null>(null);
 const isAILoading = ref(false);
+
+// Handle flash message for active tab (e.g., after assessment submission)
+const page = usePage();
+onMounted(() => {
+    const flashActiveTab = (page.props as { flash?: { activeTab?: string } }).flash?.activeTab;
+    if (flashActiveTab) {
+        activeTab.value = flashActiveTab;
+    }
+});
 
 // Reset AI state when patient changes
 const resetAIState = () => {
@@ -212,6 +222,8 @@ const toggleAIPanel = () => {
                     :allergies="allergies"
                     :read-only="!isAccepted"
                     :session-couch-id="referral?.couch_id"
+                    :has-referral="!!referral"
+                    :workflow-state="patient.status"
                     @update:active-tab="activeTab = $event"
                     @ai-task="handleAITask"
                 />

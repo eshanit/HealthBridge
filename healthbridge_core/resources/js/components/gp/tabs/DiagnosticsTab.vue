@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue';
+import { router } from '@inertiajs/vue3';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,9 +29,14 @@ interface Patient {
 interface Props {
     patient: Patient;
     readOnly?: boolean;
+    sessionCouchId?: string;
 }
 
 const props = defineProps<Props>();
+
+const emit = defineEmits<{
+    (e: 'tabChange', tab: string): void;
+}>();
 
 // Lab orders state
 const labOrders = reactive({
@@ -89,39 +95,37 @@ const toggleImagingOrder = (id: string) => {
 };
 
 const submitOrders = async () => {
+    if (!props.sessionCouchId) {
+        console.error('No session CouchDB ID provided');
+        return;
+    }
+    
     isOrdering.value = true;
     
-    try {
-        const selectedLabs = Object.entries(labOrders)
-            .filter(([key, value]) => value === true)
-            .map(([key]) => key);
-        
-        const selectedImaging = Object.entries(imagingOrders)
-            .filter(([key, value]) => value === true)
-            .map(([key]) => key);
-        
-        const response = await fetch(`/sessions/${props.patient.id}/orders`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-            },
-            body: JSON.stringify({
-                labs: selectedLabs,
-                imaging: selectedImaging,
-                other_lab: labOrders.other,
-                other_imaging: imagingOrders.other,
-            }),
-        });
-        
-        if (response.ok) {
-            console.log('Orders submitted successfully');
-        }
-    } catch (error) {
-        console.error('Failed to submit orders:', error);
-    } finally {
-        isOrdering.value = false;
-    }
+    const selectedLabs = Object.entries(labOrders)
+        .filter(([key, value]) => value === true)
+        .map(([key]) => key);
+    
+    const selectedImaging = Object.entries(imagingOrders)
+        .filter(([key, value]) => value === true)
+        .map(([key]) => key);
+    
+    router.post(`/gp/sessions/${props.sessionCouchId}/diagnostics`, {
+        labs: selectedLabs,
+        imaging: selectedImaging,
+        other_lab: labOrders.other,
+        other_imaging: imagingOrders.other,
+        specialist_notes: specialistNotes.value,
+    }, {
+        preserveScroll: true,
+        onSuccess: () => {
+            // Emit event to change to treatment tab
+            emit('tabChange', 'treatment');
+        },
+        onFinish: () => {
+            isOrdering.value = false;
+        },
+    });
 };
 </script>
 

@@ -36,6 +36,10 @@ interface Props {
 
 const props = defineProps<Props>();
 
+const emit = defineEmits<{
+    (e: 'tabChange', tab: string): void;
+}>();
+
 // Treatment state
 const treatment = reactive({
     // Medications
@@ -116,7 +120,8 @@ const saveTreatment = async () => {
         {
             preserveScroll: true,
             onSuccess: () => {
-                console.log('Treatment saved successfully');
+                // Emit event to change to prescription tab
+                emit('tabChange', 'prescription');
             },
             onError: (errors: Record<string, string>) => {
                 console.error('Failed to save treatment:', errors);

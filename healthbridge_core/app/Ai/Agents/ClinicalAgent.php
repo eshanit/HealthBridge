@@ -33,9 +33,10 @@ use Stringable;
 #[Provider([Lab::Ollama, Lab::OpenAI])]
 #[Temperature(0.3)]
 #[MaxTokens(500)]
-abstract class ClinicalAgent implements Agent, HasStructuredOutput, HasMiddleware
+abstract class ClinicalAgent implements Agent, HasStructuredOutput, HasMiddleware, Conversational
 {
     use Promptable;
+    use RemembersConversations;
 
     /**
      * The task identifier for this agent.

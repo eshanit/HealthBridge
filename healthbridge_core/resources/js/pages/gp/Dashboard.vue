@@ -363,14 +363,26 @@ onMounted(() => {
             });
         
         echo.channel('referrals')
-            .listen('ReferralCreated', (event: { session: Referral }) => {
-                referrals.value.unshift(event.session);
-                addAuditEntry('New Referral', `Patient ${event.session.patient?.name || 'Unknown'} added`);
+            .listen('.referral.created', (event: any) => {
+                // Broadcast sends flat data: { id, couch_id, workflow_state, patient, ... }
+                // Convert to session-like object for consistency
+                const sessionData = {
+                    id: event.id,
+                    couch_id: event.couch_id,
+                    workflow_state: event.workflow_state,
+                    triage_priority: event.triage_priority,
+                    chief_complaint: event.chief_complaint,
+                    patient: event.patient,
+                    session_created_at: event.created_at,
+                };
+                referrals.value.unshift(sessionData);
+                addAuditEntry('New Referral', `Patient ${event.patient?.name || 'Unknown'} added`);
             })
-            .listen('SessionStateChanged', (event: { couch_id: string; to_state: string; patient: { name: string } }) => {
-                const index = referrals.value.findIndex(r => r.patient.id === event.couch_id);
+            .listen('.session.state_changed', (event: any) => {
+                // Broadcast sends: { session_id, couch_id, from_state, to_state, patient, timestamp }
+                const index = referrals.value.findIndex(r => r.couch_id === event.couch_id);
                 if (index > -1) {
-                    referrals.value[index].patient.status = event.to_state;
+                    referrals.value[index].workflow_state = event.to_state;
                 }
                 addAuditEntry('State Changed', `${event.patient?.name || 'Patient'} → ${event.to_state}`);
             });

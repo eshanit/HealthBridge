@@ -165,6 +165,19 @@
     <!-- Action Buttons -->
     <div v-if="summary" class="flex gap-3 pt-4">
       <button 
+        @click="downloadPdf"
+        :disabled="isDownloadingPdf"
+        class="flex-1 py-2 bg-green-600 hover:bg-green-500 disabled:bg-green-800 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-colors flex items-center justify-center gap-2"
+      >
+        <svg v-if="isDownloadingPdf" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        {{ isDownloadingPdf ? 'Generating...' : 'Download PDF' }}
+      </button>
+      <button 
         @click="printSummary"
         class="flex-1 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded-lg transition-colors flex items-center justify-center gap-2"
       >
@@ -183,18 +196,59 @@
         Share
       </button>
     </div>
+
+    <!-- Stored Reports Section -->
+    <div v-if="storedReports.length > 0" class="mt-6 pt-6 border-t border-gray-700">
+      <h4 class="text-md font-semibold text-white mb-4 flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+        </svg>
+        Previous Reports
+      </h4>
+      <div class="space-y-2">
+        <div
+          v-for="report in storedReports"
+          :key="report._id"
+          class="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg"
+        >
+          <div class="flex items-center gap-3">
+            <span class="text-lg">
+              {{ report.report_type === 'discharge' ? '📄' : report.report_type === 'handover' ? '📋' : report.report_type === 'referral' ? '🏥' : '📊' }}
+            </span>
+            <div>
+              <p class="text-white text-sm font-medium">{{ getReportTypeLabel(report.report_type) }}</p>
+              <p class="text-gray-400 text-xs">{{ formatTimestamp(report.generated_at) }}</p>
+            </div>
+          </div>
+          <button
+            @click="downloadStoredReport(report)"
+            class="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded transition-colors"
+          >
+            Download
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useDischargeSummary, type DischargeSummary, type ClinicalHandover, type FollowUpReminder } from '~/composables/useDischargeSummary';
 import type { ExplainabilityRecord } from '~/types/explainability';
+import { 
+  storeReport, 
+  getSessionReports, 
+  downloadReportPdf,
+  type StoredReport,
+  type ReportType 
+} from '~/services/reportStorage';
 
 /**
  * Discharge Summary Panel Component
  * 
  * Phase 2.3: Displays AI-generated discharge summaries, clinical handovers, and follow-up reminders
+ * Phase 1 P1: Added PDF download and report persistence
  */
 
 const props = defineProps<{
@@ -207,11 +261,13 @@ const props = defineProps<{
   treatmentAnswers?: Record<string, unknown>;
   recommendedActions?: string[];
   explainability: ExplainabilityRecord | null;
+  patientCpt?: string;
 }>();
 
 const emit = defineEmits<{
   (e: 'generated', summary: DischargeSummary): void;
   (e: 'error', error: string): void;
+  (e: 'reportDownloaded', type: string): void;
 }>();
 
 // Initialize composable
@@ -227,6 +283,10 @@ const {
   generateFollowUpReminder
 } = useDischargeSummary({ enableStreaming: true });
 
+// PDF Download State
+const isDownloadingPdf = ref(false);
+const storedReports = ref<StoredReport[]>([]);
+
 // Computed
 const summary = dischargeSummary;
 const handover = clinicalHandover;
@@ -235,6 +295,11 @@ const followUp = followUpReminder;
 const isGenerating = computed(() => 
   isGeneratingSummary.value || isGeneratingHandover.value || isGeneratingFollowUp.value
 );
+
+// Load stored reports on mount
+onMounted(async () => {
+  await loadStoredReports();
+});
 
 // Methods
 async function generateAll() {
@@ -269,6 +334,100 @@ async function generateAll() {
     const errorMessage = err instanceof Error ? err.message : 'Failed to generate summary';
     emit('error', errorMessage);
   }
+}
+
+async function downloadPdf() {
+  if (isDownloadingPdf.value) return;
+  
+  // Validate required props
+  if (!props.patientCpt) {
+    emit('error', 'Patient CPT is required for PDF generation');
+    return;
+  }
+  
+  isDownloadingPdf.value = true;
+  
+  try {
+    // Call the server API to generate the PDF
+    const response = await fetch(`/api/reports/sessions/${props.sessionId}/discharge`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        patientCpt: props.patientCpt,
+      }),
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      // Store the report in local PouchDB
+      await storeReport(props.sessionId, result, 'discharge', {
+        patientCpt: props.patientCpt,
+        generatedByName: 'Current User', // TODO: Get from auth store
+      });
+      
+      // Trigger download
+      const binary = atob(result.pdf);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      
+      const blob = new Blob([bytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = result.filename || `discharge_summary_${props.sessionId.slice(-8)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      URL.revokeObjectURL(url);
+      
+      // Refresh stored reports
+      await loadStoredReports();
+      
+      emit('reportDownloaded', 'discharge');
+    } else {
+      throw new Error(result.error || 'Failed to generate PDF');
+    }
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Failed to download PDF';
+    emit('error', errorMessage);
+  } finally {
+    isDownloadingPdf.value = false;
+  }
+}
+
+async function loadStoredReports() {
+  try {
+    const reports = await getSessionReports(props.sessionId);
+    storedReports.value = reports;
+  } catch (err) {
+    console.error('Failed to load stored reports:', err);
+  }
+}
+
+async function downloadStoredReport(report: StoredReport) {
+  try {
+    downloadReportPdf(report);
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Failed to download report';
+    emit('error', errorMessage);
+  }
+}
+
+function getReportTypeLabel(type: ReportType): string {
+  const labels: Record<ReportType, string> = {
+    discharge: 'Discharge Summary',
+    handover: 'Clinical Handover',
+    referral: 'Referral Report',
+    comprehensive: 'Comprehensive Report',
+  };
+  return labels[type] || type;
 }
 
 function formatTimestamp(isoString: string): string {
