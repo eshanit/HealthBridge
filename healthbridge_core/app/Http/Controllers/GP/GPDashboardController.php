@@ -196,6 +196,16 @@ class GPDashboardController extends Controller
             $allergies = $answers['allergies'] ?? [];
         }
         
+        // Calculate waiting time using Carbon's diffForHumans for human-readable output
+        $waitingTime = $session->workflow_state_updated_at
+            ? $session->workflow_state_updated_at->diffForHumans(now(), true)
+            : 'unknown';
+        
+        // Also calculate absolute minutes for frontend calculations
+        $waitingMinutes = $session->workflow_state_updated_at
+            ? abs(now()->diffInMinutes($session->workflow_state_updated_at))
+            : 0;
+        
         return [
             'id' => $referral?->id ?? $session->id,
             'couch_id' => $session->couch_id,
@@ -207,9 +217,9 @@ class GPDashboardController extends Controller
                 'gender' => $session->patient?->gender,
                 'triage_color' => strtoupper($session->triage_priority ?? 'GREEN'),
                 'status' => $session->workflow_state,
-                'waiting_minutes' => $session->workflow_state_updated_at
-                    ? now()->diffInMinutes($session->workflow_state_updated_at)
-                    : 0,
+                'waiting_minutes' => $waitingMinutes,
+                'waiting_time' => $waitingTime,
+                'state_updated_at' => $session->workflow_state_updated_at?->toIso8601String(),
                 'danger_signs' => $dangerSigns,
             ],
             'chief_complaint' => $session->chief_complaint,

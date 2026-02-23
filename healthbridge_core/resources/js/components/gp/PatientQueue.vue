@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { formatDistanceToNow, formatDistanceToNowStrict, parseISO, isValid } from 'date-fns';
 
 interface Patient {
     id: string;
@@ -15,6 +16,8 @@ interface Patient {
     status: string;
     referral_source: string;
     waiting_minutes: number;
+    waiting_time?: string;
+    state_updated_at?: string;
     danger_signs: string[];
 }
 
@@ -56,11 +59,34 @@ const triageBadgeVariant = {
     GREEN: 'default',
 } as const;
 
-const formatWaitingTime = (minutes: number): string => {
+/**
+ * Format waiting time using date-fns for human-readable relative timestamps.
+ * Falls back to backend-provided waiting_time or a simple minutes format.
+ */
+const formatWaitingTime = (patient: Patient): string => {
+    // If we have an ISO timestamp, use date-fns for accurate relative time
+    if (patient.state_updated_at) {
+        try {
+            const date = parseISO(patient.state_updated_at);
+            if (isValid(date)) {
+                return formatDistanceToNow(date, { addSuffix: false });
+            }
+        } catch {
+            // Fall through to fallback
+        }
+    }
+    
+    // Fallback to backend-provided human-readable time
+    if (patient.waiting_time) {
+        return patient.waiting_time;
+    }
+    
+    // Final fallback: format minutes manually
+    const minutes = Math.max(0, Math.abs(patient.waiting_minutes || 0));
     if (minutes < 60) return `${minutes}m`;
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
-    return `${hours}h ${mins}m`;
+    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 };
 
 const getTriageIcon = (color: string): string => {
@@ -125,7 +151,7 @@ const getTriageIcon = (color: string): string => {
                                 </div>
                                 <div class="text-right shrink-0 ml-2">
                                     <div class="text-sm font-medium text-red-600 dark:text-red-400">
-                                        {{ formatWaitingTime(referral.patient.waiting_minutes) }}
+                                        {{ formatWaitingTime(referral.patient) }}
                                     </div>
                                     <div class="text-xs text-muted-foreground">{{ isMyCases ? 'active' : 'waiting' }}</div>
                                 </div>
@@ -225,7 +251,7 @@ const getTriageIcon = (color: string): string => {
                                 </div>
                                 <div class="text-right shrink-0 ml-2">
                                     <div class="text-sm font-medium">
-                                        {{ formatWaitingTime(referral.patient.waiting_minutes) }}
+                                        {{ formatWaitingTime(referral.patient) }}
                                     </div>
                                     <div class="text-xs text-muted-foreground">{{ isMyCases ? 'active' : 'waiting' }}</div>
                                 </div>
