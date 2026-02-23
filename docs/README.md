@@ -95,6 +95,13 @@ When adding new documentation:
 3. Update this README with links to new documents
 4. Cross-reference related documents where appropriate
 
+## Contact
+
+For questions or inquiries about this project, please reach out to:
+
+**Tinashe Mangoro** - Lead Developer, UtanoBridge System
+- Email: [tinashemangoro@gmail.com](mailto:tinashemangoro@gmail.com)
+
 ## Document Standards
 
 - **Format**: Markdown (.md)
