@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Ai\MedGemmaController;
+use App\Http\Controllers\GP\AiAuditController;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -24,6 +25,12 @@ Route::middleware(['auth', 'ai.guard', 'throttle:ai'])->prefix('api/ai')->group(
     Route::post('/medgemma', MedGemmaController::class);
     Route::get('/health', [MedGemmaController::class, 'health']);
     Route::get('/tasks', [MedGemmaController::class, 'tasks']);
+});
+
+// AI Audit - accessible from GP AI section
+Route::middleware(['auth', 'verified'])->prefix('audit')->group(function () {
+    Route::get('/ai', [AiAuditController::class, 'index'])->name('audit.ai');
+    Route::get('/ai/{id}', [AiAuditController::class, 'show'])->name('audit.ai.show');
 });
 
 require __DIR__.'/settings.php';

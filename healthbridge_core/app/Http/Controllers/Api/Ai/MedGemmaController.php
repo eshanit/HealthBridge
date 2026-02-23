@@ -1197,7 +1197,8 @@ class MedGemmaController extends Controller
         return AiRequest::create([
             'request_uuid' => $this->generateUuid(),
             'user_id' => $data['user_id'],
-            'session_couch_id' => $data['context']['sessionId'] ?? null,
+            'session_couch_id' => $data['context']['sessionId'] ?? $data['context']['session_id'] ?? null,
+            'patient_cpt' => $data['context']['patientCpt'] ?? $data['context']['patient_cpt'] ?? $data['context']['patient_id'] ?? null,
             'form_couch_id' => $data['context']['formInstanceId'] ?? null,
             'form_section_id' => $data['context']['formSectionId'] ?? null,
             'form_field_id' => $data['context']['formFieldId'] ?? null,

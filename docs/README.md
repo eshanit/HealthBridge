@@ -21,8 +21,10 @@ docs/
 ├── development/           # Development guidelines
 │   └── guidelines.md         # Coding standards and practices
 │
-└── troubleshooting/       # Troubleshooting guides
-    └── overview.md            # Common issues and solutions
+├── troubleshooting/       # Troubleshooting guides
+│   └── overview.md            # Common issues and solutions
+│
+└── AI_AUDIT.md           # AI Audit system documentation
 ```
 
 ## Quick Navigation
@@ -42,6 +44,7 @@ docs/
 
 1. [API Reference](api-reference/overview.md) - REST API endpoints
 2. [AI Integration](architecture/ai-integration.md) - AI service integration patterns
+3. [AI Audit System](AI_AUDIT.md) - AI request logging and audit trail
 
 ### For Troubleshooting
 

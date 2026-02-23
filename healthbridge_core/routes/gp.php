@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\GP\AiAuditController;
 use App\Http\Controllers\GP\ClinicalSessionController;
 use App\Http\Controllers\GP\GPDashboardController;
 use App\Http\Controllers\GP\PatientController;
@@ -65,6 +66,10 @@ Route::middleware(['auth', 'verified', 'role:doctor|radiologist|admin'])->prefix
     
     // Workflow Configuration (for frontend state machine)
     Route::get('/workflow/config', [ClinicalSessionController::class, 'getWorkflowConfig'])->name('workflow.config');
+    
+    // AI Audit
+    Route::get('/audit/ai', [AiAuditController::class, 'index'])->name('audit.ai');
+    Route::get('/audit/ai/{id}', [AiAuditController::class, 'show'])->name('audit.ai.show');
     
     // Prescription Management
     Route::prefix('prescriptions')->name('prescriptions.')->group(function () {
