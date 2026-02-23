@@ -215,26 +215,35 @@ export default defineEventHandler(async (event): Promise<AIResponse> => {
     // Build structured prompt based on payload type
     const prompt = buildStructuredPrompt(body);
     
+    console.log(`[AI] Calling Ollama at ${config.ollamaUrl}/api/generate`);
+    console.log(`[AI] Prompt length: ${prompt.length} chars`);
+    
     // Call Ollama
-    const res = await $fetch<{ response: string }>(`${config.ollamaUrl}/api/generate`, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        'Authorization': `Bearer ${config.medgemmaApiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: {
-        model: config.ollamaModel || 'gemma3:4b',
-        prompt,
-        stream: false,
-        options: {
-          temperature: 0.3,
-          num_predict: 512,
-          top_k: 10,
-          top_p: 0.9
+    let res: { response: string };
+    try {
+      res = await $fetch<{ response: string }>(`${config.ollamaUrl}/api/generate`, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'Authorization': `Bearer ${config.medgemmaApiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: {
+          model: config.ollamaModel || 'gemma3:4b',
+          prompt,
+          stream: false,
+          options: {
+            temperature: 0.3,
+            num_predict: 512,
+            top_k: 10,
+            top_p: 0.9
+          }
         }
-      }
-    });
+      });
+    } catch (ollamaError) {
+      console.error(`[AI] Ollama fetch error:`, ollamaError);
+      throw ollamaError;
+    }
 
     clearTimeout(timeoutId);
     const responseTime = Date.now() - startTime;

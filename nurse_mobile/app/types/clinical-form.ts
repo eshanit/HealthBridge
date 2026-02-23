@@ -219,7 +219,7 @@ export interface ClinicalFormSchema {
   description?: string;
   
   // Clinical Metadata
-  protocol: 'WHO_IMCI' | 'NATIONAL_GUIDELINE';
+  protocol: 'WHO_IMCI' | 'WHO_IMCI + XRAY_TRIAGE + DISCHARGE' | 'NATIONAL_GUIDELINE';
   applicableAgeRange: {
     minMonths: number;
     maxMonths: number;

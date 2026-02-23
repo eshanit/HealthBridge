@@ -36,6 +36,7 @@ class SyncService
                 'clinicalForm' => $this->syncForm($doc),
                 'aiLog' => $this->syncAiLog($doc),
                 'clinicalReport' => $this->syncReport($doc),
+                'radiologyStudy' => $this->syncRadiologyStudy($doc),
                 default => $this->handleUnknown($doc),
             };
         } catch (\Exception $e) {
@@ -337,6 +338,114 @@ class SyncService
             'type' => $reportType,
             'session' => $data['session_couch_id'],
             'patient' => $data['patient_cpt'],
+        ]);
+    }
+
+    /**
+     * Sync a radiology study document.
+     * 
+     * Radiology studies are created from X-Ray assessments in nurse_mobile
+     * and synced to MySQL for radiologist workflow.
+     * 
+     * Document structure:
+     * {
+     *   "_id": "radiology:UUID",
+     *   "type": "radiologyStudy",
+     *   "patientCpt": "CPT123",
+     *   "sessionCouchId": "session:ABC123",
+     *   "modality": "XRAY",
+     *   "bodyPart": "CHEST",
+     *   "clinicalIndication": "Cough, difficulty breathing",
+     *   "priority": "routine",
+     *   "status": "ordered",
+     *   "createdBy": "nurse_001",
+     *   "createdAt": "2026-02-22T10:00:00Z"
+     * }
+     */
+    protected function syncRadiologyStudy(array $doc): void
+    {
+        // Handle conflict resolution - check for existing record
+        $existingStudy = \App\Models\RadiologyStudy::where('couch_id', $doc['_id'])->first();
+        
+        // Get revision for conflict detection
+        $incomingRev = $doc['_rev'] ?? null;
+        $existingRev = null;
+        if ($existingStudy) {
+            $existingRev = $existingStudy->couch_rev ?? null;
+        }
+        
+        // Conflict resolution: Last write wins based on updated timestamp
+        if ($existingStudy && $incomingRev && $existingRev) {
+            $incomingTime = isset($doc['updatedAt']) ? strtotime($doc['updatedAt']) : 0;
+            $existingTime = 0;
+            if ($existingStudy->couch_updated_at) {
+                $existingTime = strtotime($existingStudy->couch_updated_at);
+            }
+            
+            // If incoming is older, skip update
+            if ($incomingTime < $existingTime) {
+                Log::debug('SyncService: Skipping older radiology study revision', [
+                    'id' => $doc['_id'],
+                    'incoming_rev' => $incomingRev,
+                    'existing_rev' => $existingRev,
+                ]);
+                return;
+            }
+        }
+        
+        // Resolve referring user (nurse who ordered the study)
+        $referredBy = $doc['createdBy'] ?? $doc['created_by'] ?? $doc['referredBy'] ?? null;
+        $referredByUserId = $this->resolveUserId($referredBy);
+        
+        // Resolve patient CPT
+        $patientCpt = $doc['patientCpt'] ?? $doc['patient_cpt'] ?? $doc['patientId'] ?? null;
+        
+        // Resolve session link
+        $sessionCouchId = $doc['sessionCouchId'] ?? $doc['session_couch_id'] ?? $doc['sessionId'] ?? null;
+        
+        $data = [
+            'couch_id' => $doc['_id'],
+            'couch_rev' => $incomingRev,
+            'study_uuid' => $doc['studyUuid'] ?? $doc['study_uuid'] ?? (string) Str::uuid(),
+            'session_couch_id' => $sessionCouchId,
+            'patient_cpt' => $patientCpt,
+            'modality' => $doc['modality'] ?? 'XRAY',
+            'body_part' => $doc['bodyPart'] ?? $doc['body_part'] ?? 'UNKNOWN',
+            'study_type' => $doc['studyType'] ?? $doc['study_type'] ?? 'Diagnostic',
+            'clinical_indication' => $doc['clinicalIndication'] ?? $doc['clinical_indication'] ?? null,
+            'clinical_question' => $doc['clinicalQuestion'] ?? $doc['clinical_question'] ?? null,
+            'priority' => $doc['priority'] ?? 'routine',
+            'status' => $doc['status'] ?? 'ordered',
+            'referring_user_id' => $referredByUserId,
+            'ordered_at' => $this->parseTimestamp($doc['orderedAt'] ?? $doc['ordered_at'] ?? $doc['createdAt'] ?? null),
+            'scheduled_at' => $this->parseTimestamp($doc['scheduledAt'] ?? $doc['scheduled_at'] ?? null),
+            'performed_at' => $this->parseTimestamp($doc['performedAt'] ?? $doc['performed_at'] ?? null),
+            'images_available_at' => $this->parseTimestamp($doc['imagesAvailableAt'] ?? $doc['images_available_at'] ?? null),
+            'study_completed_at' => $this->parseTimestamp($doc['studyCompletedAt'] ?? $doc['study_completed_at'] ?? null),
+            // AI-related fields
+            'ai_priority_score' => $doc['aiPriorityScore'] ?? $doc['ai_priority_score'] ?? null,
+            'ai_critical_flag' => $doc['aiCriticalFlag'] ?? $doc['ai_critical_flag'] ?? false,
+            'ai_preliminary_report' => $doc['aiPreliminaryReport'] ?? $doc['ai_preliminary_report'] ?? null,
+            // DICOM fields
+            'dicom_series_count' => $doc['dicomSeriesCount'] ?? $doc['dicom_series_count'] ?? null,
+            'dicom_storage_path' => $doc['dicomStoragePath'] ?? $doc['dicom_storage_path'] ?? null,
+            // Metadata
+            'couch_updated_at' => $this->parseTimestamp($doc['updatedAt'] ?? $doc['updated_at'] ?? null),
+            'raw_document' => $doc,
+            'synced_at' => now(),
+        ];
+        
+        \App\Models\RadiologyStudy::updateOrCreate(
+            ['couch_id' => $doc['_id']],
+            $data
+        );
+        
+        Log::debug('SyncService: Synced radiology study', [
+            'id' => $doc['_id'],
+            'patient_cpt' => $patientCpt,
+            'modality' => $data['modality'],
+            'status' => $data['status'],
+            'referring_user' => $referredByUserId,
         ]);
     }
 

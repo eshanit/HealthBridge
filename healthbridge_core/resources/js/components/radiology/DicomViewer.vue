@@ -1,483 +1,590 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import { 
-  ZoomIn, 
-  ZoomOut, 
-  Move, 
-  RotateCw, 
-  FlipHorizontal, 
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
+import {
+  ZoomIn,
+  ZoomOut,
+  Move,
+  RotateCw,
+  FlipHorizontal,
   FlipVertical,
   Maximize2,
-  Play,
-  Pause,
-  Layers,
-  Ruler,
-  MessageSquare,
-  Settings,
-  Image,
   Loader2,
-  MousePointer2
+  Image as ImageIcon,
+  Eye,
+  Sun,
+  SunMedium,
+  Bone,
+  Brain,
+  Activity,
+  RefreshCw
 } from 'lucide-vue-next';
-
-// VueUse composables
-import { 
-  useWindowSize, 
-  useMouse, 
-  useMagicKeys, 
-  useElementSize,
-  useDebounceFn,
-  useLocalStorage,
-  useMediaQuery,
-  whenever
-} from '@vueuse/core';
+// @ts-ignore - dicom-parser is installed
+import dicomParser from 'dicom-parser';
 
 interface Props {
   studyId?: number;
-  studyInstanceUid?: string;
 }
 
 const props = defineProps<Props>();
 
-// Window size for responsive adjustments
-const { width: windowSizeWidth, height: windowSizeHeight } = useWindowSize();
-
-// Mouse tracking for window/level tool
-const { x: mouseX, y: mouseY, sourceType } = useMouse();
-const isMouseOverViewer = ref(false);
-
-// Element size for viewport synchronization
+// ============ STATE ============
 const viewerContainer = ref<HTMLElement | null>(null);
-const { width: viewerWidth, height: viewerHeight } = useElementSize(viewerContainer);
+const canvasElement = ref<HTMLCanvasElement | null>(null);
+const isLoading = ref(true);
+const error = ref<string | null>(null);
+const imageLoaded = ref(false);
 
-// Keyboard shortcuts with useMagicKeys
-const keys = useMagicKeys({
-  passive: false,
-  onEventFired(e) {
-    // Ignore if typing in input
-    if ((e.target as HTMLElement).tagName === 'INPUT' || 
-        (e.target as HTMLElement).tagName === 'TEXTAREA' ||
-        (e.target as HTMLElement).tagName === 'SELECT') {
-      return;
-    }
-  },
-});
-
-// Key combinations
-const Ctrl_S = keys['Ctrl+S'];
-const Ctrl_Shift_F = keys['Ctrl+Shift+F'];
-const Space = keys['Space'];
-const Escape = keys['Escape'];
-const ArrowLeft = keys['ArrowLeft'];
-const ArrowRight = keys['ArrowRight'];
-const PageUp = keys['PageUp'];
-const PageDown = keys['PageDown'];
-const Home = keys['Home'];
-const End = keys['End'];
-
-// Tool shortcuts
-const W_Key = keys['w'];
-const Z_Key = keys['z'];
-const P_Key = keys['p'];
-const M_Key = keys['m'];
-const A_Key = keys['a'];
-const R_Key = keys['r'];
-const NumberKeys = [keys['1'], keys['2'], keys['3'], keys['4'], keys['5']];
-
-// Persist user preferences
-const userPreferences = useLocalStorage('dicom-viewer-preferences', {
-  defaultTool: 'windowLevel',
-  defaultZoom: 100,
-  showAnnotations: true,
-  autoPlay: false,
-  playbackSpeed: 2,
-});
-
-// Responsive breakpoints
-const isMobile = useMediaQuery('(max-width: 768px)');
-const isTablet = useMediaQuery('(max-width: 1024px)');
-
-// Debounced functions for performance
-const debouncedAutoSave = useDebounceFn(() => {
-  console.log('Auto-saving viewport state...');
-}, 500);
-
-// Watchers for keyboard shortcuts
-watch(Ctrl_S, (pressed) => {
-  if (pressed) {
-    debouncedAutoSave();
-  }
-});
-
-watch(Space, (pressed) => {
-  if (pressed) {
-    togglePlay();
-  }
-});
-
-watch(ArrowLeft, (pressed) => {
-  if (pressed) prevImage();
-});
-
-watch(ArrowRight, (pressed) => {
-  if (pressed) nextImage();
-});
-
-watch(W_Key, (pressed) => {
-  if (pressed) setTool('windowLevel');
-});
-
-watch(Z_Key, (pressed) => {
-  if (pressed) setTool('zoom');
-});
-
-watch(P_Key, (pressed) => {
-  if (pressed) setTool('pan');
-});
-
-watch(M_Key, (pressed) => {
-  if (pressed) setTool('measure');
-});
-
-watch(R_Key, (pressed) => {
-  if (pressed) rotate(90);
-});
-
-// Number key presets
-NumberKeys.forEach((key, index) => {
-  watch(key, (pressed) => {
-    if (pressed && wlPresets[index]) {
-      applyPreset(wlPresets[index]);
-    }
-  });
-});
-
-// ============ VIEWER STATE ============
-
-// Tool state
-const activeTool = ref<'windowLevel' | 'zoom' | 'pan' | 'measure' | 'annotate'>('windowLevel');
+// Viewer state
 const zoom = ref(100);
 const rotation = ref(0);
 const flipH = ref(false);
 const flipV = ref(false);
 const windowCenter = ref(40);
 const windowWidth = ref(400);
-const isPlaying = ref(false);
+const brightness = ref(0);
+const contrast = ref(0);
 
-// Image list (placeholder)
-const images = ref<Array<{ id: number; instanceNumber: number }>>([]);
-const currentImageIndex = ref(0);
-const totalImages = computed(() => images.value.length);
+// DICOM data
+const dicomData = ref<any>(null);
+const pixelData = ref<Uint8Array | Uint16Array | null>(null);
+const rows = ref(0);
+const cols = ref(0);
+const bitsAllocated = ref(16);
+const rescaleSlope = ref(1);
+const rescaleIntercept = ref(0);
+const isSigned = ref(false);
 
-// Loading/error states
-const isLoading = ref(true);
-const isLoaded = ref(false);
-const error = ref<string | null>(null);
+// Image display
+const displayImage = ref<ImageData | null>(null);
 
-// Tools configuration
+// Tools
 const tools = [
-  { id: 'windowLevel', label: 'W/L', icon: Layers, shortcut: 'W' },
+  { id: 'windowLevel', label: 'W/L', icon: SunMedium, shortcut: 'W' },
   { id: 'zoom', label: 'Zoom', icon: ZoomIn, shortcut: 'Z' },
   { id: 'pan', label: 'Pan', icon: Move, shortcut: 'P' },
-  { id: 'measure', label: 'Measure', icon: Ruler, shortcut: 'M' },
-  { id: 'annotate', label: 'Annotate', icon: MessageSquare, shortcut: 'A' },
 ];
 
-// Window/Level presets
-const wlPresets = [
-  { label: 'Soft Tissue', center: 40, width: 400 },
-  { label: 'Lung', center: -600, width: 1500 },
-  { label: 'Bone', center: 300, width: 1500 },
-  { label: 'Brain', center: 40, width: 80 },
-  { label: 'Liver', center: 60, width: 150 },
+// Presets
+const presets = [
+  { label: 'Soft Tissue', center: 40, width: 400, icon: Activity },
+  { label: 'Lung', center: -600, width: 1500, icon: Activity },
+  { label: 'Bone', center: 300, width: 1500, icon: Bone },
+  { label: 'Brain', center: 40, width: 80, icon: Brain },
 ];
 
 // ============ METHODS ============
 
-const setTool = (toolId: string) => {
-  activeTool.value = toolId as any;
-  userPreferences.value.defaultTool = toolId;
-};
-
-const zoomIn = () => {
-  zoom.value = Math.min(zoom.value + 25, 400);
-};
-
-const zoomOut = () => {
-  zoom.value = Math.max(zoom.value - 25, 25);
-};
-
-const resetZoom = () => {
-  zoom.value = 100;
-};
-
-const rotate = (degrees: number) => {
-  rotation.value = (rotation.value + degrees) % 360;
-};
-
-const flip = (direction: 'horizontal' | 'vertical') => {
-  if (direction === 'horizontal') {
-    flipH.value = !flipH.value;
-  } else {
-    flipV.value = !flipV.value;
-  }
-};
-
-const applyPreset = (preset: { center: number; width: number }) => {
-  windowCenter.value = preset.center;
-  windowWidth.value = preset.width;
-};
-
-const nextImage = () => {
-  if (currentImageIndex.value < totalImages.value - 1) {
-    currentImageIndex.value++;
-  }
-};
-
-const prevImage = () => {
-  if (currentImageIndex.value > 0) {
-    currentImageIndex.value--;
-  }
-};
-
-const togglePlay = () => {
-  isPlaying.value = !isPlaying.value;
-};
-
-// Handle mouse movement for window/level tool
-const handleMouseMove = useDebounceFn((e: MouseEvent) => {
-  if (!isMouseOverViewer.value || activeTool.value !== 'windowLevel') return;
-  
-  // Calculate delta for window/level adjustment
-  const delta = e.movementX || 0;
-  windowWidth.value = Math.max(1, windowWidth.value + delta * 2);
-}, 16); // ~60fps
-
-// Initialize
-onMounted(() => {
-  // Simulate loading (in production this would load from Orthanc)
-  setTimeout(() => {
-    // Placeholder images
-    images.value = Array.from({ length: 120 }, (_, i) => ({
-      id: i + 1,
-      instanceNumber: i + 1,
-    }));
+const loadDicom = async () => {
+  if (!props.studyId) {
     isLoading.value = false;
-    isLoaded.value = true;
-  }, 1000);
+    return;
+  }
+
+  isLoading.value = true;
+  error.value = null;
+  imageLoaded.value = false;
+
+  try {
+    // Fetch the DICOM file
+    const response = await fetch(`/radiology/studies/${props.studyId}/image`, {
+      headers: {
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 415) {
+        // DICOM viewer needed
+        const json = await response.json();
+        error.value = json.message || 'DICOM requires specialized viewer';
+        return;
+      }
+      throw new Error(`Failed to load image: ${response.status}`);
+    }
+
+    // Get the array buffer
+    const arrayBuffer = await response.arrayBuffer();
+    const byteArray = new Uint8Array(arrayBuffer);
+    
+    // Debug: Log first bytes to see if it's valid DICOM
+    console.log('First 132 bytes:', Array.from(byteArray.slice(128, 132)));
+    const preamble = String.fromCharCode(...byteArray.slice(128, 132));
+    console.log('Preamble check:', preamble); // Should be 'DICM'
+    
+    // Check content type
+    const contentType = response.headers.get('Content-Type') || '';
+    console.log('Content-Type:', contentType);
+
+    // Try parsing as standard image first
+    if (contentType.includes('image/')) {
+      // It's a standard image (PNG, JPG)
+      const blob = new Blob([arrayBuffer], { type: contentType });
+      const url = URL.createObjectURL(blob);
+      await loadStandardImage(url);
+      return;
+    }
+
+    // Parse DICOM
+    try {
+      dicomData.value = dicomParser.parseDicom(byteArray);
+    } catch (parseError: any) {
+      console.error('DICOM parse error:', parseError);
+      // Try as standard image anyway
+      const blob = new Blob([arrayBuffer], { type: 'image/png' });
+      const url = URL.createObjectURL(blob);
+      await loadStandardImage(url);
+      return;
+    }
+
+    // Extract essential DICOM tags
+    extractDicomTags();
+    
+    // Extract pixel data
+    extractPixelData(byteArray);
+    
+    // Render the image
+    renderDicomImage();
+    
+    imageLoaded.value = true;
+  } catch (e: any) {
+    console.error('Failed to load DICOM:', e);
+    error.value = e.message || 'Failed to load image';
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+const loadStandardImage = async (url: string): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      if (!canvasElement.value) return;
+      const ctx = canvasElement.value.getContext('2d');
+      if (!ctx) return;
+      
+      canvasElement.value.width = img.width;
+      canvasElement.value.height = img.height;
+      ctx.drawImage(img, 0, 0);
+      imageLoaded.value = true;
+      resolve();
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+};
+
+const extractDicomTags = () => {
+  if (!dicomData.value) return;
+  
+  try {
+    // Get image dimensions
+    rows.value = dicomData.value.elements['x00280010']?.Items?.[0]?.Value?.[0] || 0;
+    cols.value = dicomData.value.elements['x00280011']?.Items?.[0]?.Value?.[0] || 0;
+    bitsAllocated.value = dicomData.value.elements['x00280100']?.Items?.[0]?.Value?.[0] || 16;
+    
+    // Get window/level
+    const wc = dicomData.value.elements['x00281050']?.Value?.[0];
+    const ww = dicomData.value.elements['x00281051']?.Value?.[0];
+    if (wc) windowCenter.value = wc;
+    if (ww) windowWidth.value = ww;
+    
+    // Get rescale values
+    const rs = dicomData.value.elements['x00281053']?.Value?.[0];
+    const ri = dicomData.value.elements['x00281052']?.Value?.[0];
+    if (rs) rescaleSlope.value = rs;
+    if (ri) rescaleIntercept.value = ri;
+    
+    // Check for signed/unsigned
+    const pixelRepresentation = dicomData.value.elements['x00280103']?.Value?.[0];
+    isSigned.value = pixelRepresentation === 1;
+    
+    console.log('DICOM tags:', { rows: rows.value, cols: cols.value, bits: bitsAllocated.value });
+  } catch (e) {
+    console.error('Error extracting DICOM tags:', e);
+  }
+};
+
+const extractPixelData = (byteArray: Uint8Array) => {
+  if (!dicomData.value) return;
+  
+  try {
+    // Try to find pixel data in the DICOM dataset
+    // The pixel data is usually in element x7fe00010
+    const pixelDataElement = dicomData.value.elements['x7fe00010'];
+    
+    if (pixelDataElement && pixelDataElement.Length) {
+      // Get the raw pixel data from the byte array
+      const pixelDataRaw = new Uint8Array(byteArray.buffer, pixelDataElement.dataOffset, pixelDataElement.Length);
+      pixelData.value = pixelDataRaw;
+      console.log('Found pixel data:', pixelDataRaw.length, 'bytes');
+    } else {
+      console.log('No pixel data element found in DICOM');
+    }
+  } catch (e) {
+    console.error('Error extracting pixel data:', e);
+  }
+};
+
+const renderDicomImage = () => {
+  if (!canvasElement.value || !dicomData.value) {
+    error.value = 'No DICOM data to render';
+    return;
+  }
+  
+  const ctx = canvasElement.value.getContext('2d');
+  if (!ctx) return;
+  
+  // If we have rows/cols, use them
+  if (rows.value > 0 && cols.value > 0) {
+    canvasElement.value.width = cols.value;
+    canvasElement.value.height = rows.value;
+    
+    // Try to render from pixel data if available
+    if (pixelData.value && pixelData.value.length > 0) {
+      renderFromPixelData(ctx);
+    } else {
+      // Show placeholder
+      renderPlaceholder(ctx);
+    }
+  } else {
+    // Default size - show placeholder
+    canvasElement.value.width = 512;
+    canvasElement.value.height = 512;
+    renderPlaceholder(ctx);
+  }
+};
+
+const renderFromPixelData = (ctx: CanvasRenderingContext2D) => {
+  if (!pixelData.value) return;
+  
+  const width = cols.value || 512;
+  const height = rows.value || 512;
+  const imageData = ctx.createImageData(width, height);
+  const data = imageData.data;
+  
+  // Apply window/level
+  const wc = windowCenter.value;
+  const ww = windowWidth.value;
+  const slope = rescaleSlope.value;
+  const intercept = rescaleIntercept.value;
+  
+  for (let i = 0; i < pixelData.value.length; i++) {
+    // Apply rescale
+    let value = pixelData.value[i] * slope + intercept;
+    
+    // Apply window/level
+    const normalized = (value - (wc - ww / 2)) / ww;
+    let output = Math.max(0, Math.min(255, normalized * 255));
+    
+    // Set RGBA
+    const idx = i * 4;
+    data[idx] = output;     // R
+    data[idx + 1] = output; // G
+    data[idx + 2] = output; // B
+    data[idx + 3] = 255;    // A
+  }
+  
+  ctx.putImageData(imageData, 0, 0);
+};
+
+const renderPlaceholder = (ctx: CanvasRenderingContext2D) => {
+  // Draw a placeholder indicating DICOM was loaded
+  const width = canvasElement.value?.width || 512;
+  const height = canvasElement.value?.height || 512;
+  
+  // Gray background
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fillRect(0, 0, width, height);
+  
+  // Draw some lines to simulate X-ray
+  ctx.strokeStyle = '#404040';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < height; i += 4) {
+    ctx.beginPath();
+    ctx.moveTo(0, i);
+    ctx.lineTo(width, i);
+    ctx.stroke();
+  }
+  
+  // Text
+  ctx.fillStyle = '#888';
+  ctx.font = '16px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('DICOM Data Loaded', width / 2, height / 2 - 20);
+  ctx.fillText(`${cols.value} x ${rows.value}`, width / 2, height / 2 + 10);
+  ctx.fillText(`Bits: ${bitsAllocated.value}`, width / 2, height / 2 + 40);
+};
+
+// ============ WATCHERS ============
+watch(() => props.studyId, () => {
+  loadDicom();
 });
 
-// Watch for viewport size changes
-watch([viewerWidth, viewerHeight], () => {
-  debouncedAutoSave();
+watch([windowCenter, windowWidth], () => {
+  if (pixelData.value) {
+    const ctx = canvasElement.value?.getContext('2d');
+    if (ctx) renderFromPixelData(ctx);
+  }
+});
+
+// ============ LIFECYCLE ============
+onMounted(() => {
+  loadDicom();
+});
+
+onUnmounted(() => {
+  // Cleanup
+});
+
+// ============ EXTERNAL CONTROL ============
+defineExpose({
+  loadDicom,
+  zoom,
+  rotation,
+  flipH,
+  flipV,
+  windowCenter,
+  windowWidth,
 });
 </script>
 
 <template>
-  <div class="h-full flex flex-col bg-gray-900 rounded-lg overflow-hidden">
-    <!-- Toolbar -->
-    <div class="bg-gray-800 px-4 py-2 flex items-center gap-4">
-      <!-- Tool buttons -->
-      <div class="flex items-center gap-1">
-        <button
-          v-for="tool in tools"
-          :key="tool.id"
-          @click="setTool(tool.id)"
-          :title="`${tool.label} (${tool.shortcut})`"
-          :class="[
-            'p-2 rounded transition-colors',
-            activeTool === tool.id 
-              ? 'bg-blue-600 text-white' 
-              : 'text-gray-300 hover:bg-gray-700'
-          ]"
+  <div class="dicom-viewer" ref="viewerContainer">
+    <!-- Loading State -->
+    <div v-if="isLoading" class="loading-overlay">
+      <Loader2 class="animate-spin h-8 w-8 text-blue-500" />
+      <span class="mt-2 text-gray-400">Loading DICOM...</span>
+    </div>
+    
+    <!-- Error State -->
+    <div v-else-if="error" class="error-overlay">
+      <div class="text-center p-4">
+        <ImageIcon class="h-12 w-12 text-yellow-500 mx-auto mb-2" />
+        <p class="text-yellow-400 font-medium">{{ error }}</p>
+        <p class="text-gray-500 text-sm mt-2">
+          DICOM files require specialized rendering. Standard images are supported.
+        </p>
+        <button 
+          @click="loadDicom"
+          class="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white text-sm flex items-center mx-auto"
         >
-          <component :is="tool.icon" class="w-5 h-5" />
+          <RefreshCw class="h-4 w-4 mr-2" />
+          Retry
         </button>
       </div>
-      
-      <div class="w-px h-8 bg-gray-600"></div>
-      
-      <!-- Zoom controls -->
-      <div class="flex items-center gap-2">
-        <button
-          @click="zoomOut"
-          class="p-2 text-gray-300 hover:bg-gray-700 rounded"
+    </div>
+    
+    <!-- Canvas -->
+    <div v-else class="canvas-container" :style="{ transform: `scale(${zoom / 100}) rotate(${rotation}deg) scaleX(${flipH ? -1 : 1}) scaleY(${flipV ? -1 : 1})` }">
+      <canvas ref="canvasElement" class="dicom-canvas"></canvas>
+    </div>
+    
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="tool-group">
+        <!-- Zoom -->
+        <button 
+          @click="zoom = Math.max(10, zoom - 10)"
+          class="tool-btn"
           title="Zoom Out"
         >
-          <ZoomOut class="w-5 h-5" />
+          <ZoomOut class="h-4 w-4" />
         </button>
-        <span class="text-sm text-gray-300 min-w-12 text-center">{{ zoom }}%</span>
-        <button
-          @click="zoomIn"
-          class="p-2 text-gray-300 hover:bg-gray-700 rounded"
+        <span class="zoom-value">{{ zoom }}%</span>
+        <button 
+          @click="zoom = Math.min(400, zoom + 10)"
+          class="tool-btn"
           title="Zoom In"
         >
-          <ZoomIn class="w-5 h-5" />
-        </button>
-        <button
-          @click="resetZoom"
-          class="p-2 text-gray-300 hover:bg-gray-700 rounded"
-          title="Reset"
-        >
-          <Maximize2 class="w-5 h-5" />
+          <ZoomIn class="h-4 w-4" />
         </button>
       </div>
       
-      <div class="w-px h-8 bg-gray-600"></div>
+      <div class="tool-group">
+        <!-- Rotation -->
+        <button 
+          @click="rotation = (rotation + 90) % 360"
+          class="tool-btn"
+          title="Rotate"
+        >
+          <RotateCw class="h-4 w-4" />
+        </button>
+      </div>
       
-      <!-- Rotation -->
-      <div class="flex items-center gap-1">
-        <button
-          @click="rotate(-90)"
-          class="p-2 text-gray-300 hover:bg-gray-700 rounded"
-          title="Rotate Left"
-        >
-          <RotateCw class="w-5 h-5" />
-        </button>
-        <button
-          @click="rotate(90)"
-          class="p-2 text-gray-300 hover:bg-gray-700 rounded"
-          title="Rotate Right"
-        >
-          <RotateCw class="w-5 h-5 rotate-180" />
-        </button>
-        <button
-          @click="flip('horizontal')"
-          :class="[
-            'p-2 rounded',
-            flipH ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-700'
-          ]"
+      <div class="tool-group">
+        <!-- Flip -->
+        <button 
+          @click="flipH = !flipH"
+          class="tool-btn"
+          :class="{ active: flipH }"
           title="Flip Horizontal"
         >
-          <FlipHorizontal class="w-5 h-5" />
+          <FlipHorizontal class="h-4 w-4" />
         </button>
-        <button
-          @click="flip('vertical')"
-          :class="[
-            'p-2 rounded',
-            flipV ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-700'
-          ]"
+        <button 
+          @click="flipV = !flipV"
+          class="tool-btn"
+          :class="{ active: flipV }"
           title="Flip Vertical"
         >
-          <FlipVertical class="w-5 h-5" />
+          <FlipVertical class="h-4 w-4" />
         </button>
       </div>
       
-      <div class="w-px h-8 bg-gray-600"></div>
-      
-      <!-- Playback -->
-      <button
-        @click="togglePlay"
-        class="p-2 text-gray-300 hover:bg-gray-700 rounded"
-        :title="isPlaying ? 'Pause' : 'Play'"
-      >
-        <Play v-if="!isPlaying" class="w-5 h-5" />
-        <Pause v-else class="w-5 h-5" />
-      </button>
-      
-      <div class="flex-1"></div>
-      
-      <!-- Window/Level presets -->
-      <div class="flex items-center gap-2">
-        <span class="text-xs text-gray-400">Preset:</span>
-        <select
-          v-for="(preset, index) in wlPresets"
-          :key="index"
-          @change="applyPreset(preset)"
-          class="bg-gray-700 text-gray-300 text-sm px-2 py-1 rounded border-none cursor-pointer"
+      <div class="tool-group">
+        <!-- Window/Level Presets -->
+        <button 
+          v-for="preset in presets" 
+          :key="preset.label"
+          @click="windowCenter = preset.center; windowWidth = preset.width"
+          class="tool-btn text-xs"
+          :title="preset.label"
         >
           {{ preset.label }}
-        </select>
-      </div>
-    </div>
-    
-    <!-- Main viewport -->
-    <div 
-      ref="viewerContainer"
-      class="flex-1 relative flex items-center justify-center overflow-hidden"
-      @mouseenter="isMouseOverViewer = true"
-      @mouseleave="isMouseOverViewer = false"
-      @mousemove="handleMouseMove"
-    >
-      <!-- Loading state -->
-      <div v-if="isLoading" class="absolute inset-0 flex items-center justify-center bg-gray-900">
-        <div class="text-center">
-          <Loader2 class="w-12 h-12 text-blue-500 animate-spin mx-auto" />
-          <p class="mt-4 text-gray-400">Loading DICOM images...</p>
-        </div>
-      </div>
-      
-      <!-- Error state -->
-      <div v-else-if="error" class="absolute inset-0 flex items-center justify-center bg-gray-900">
-        <div class="text-center text-red-400">
-          <Image class="w-16 h-16 mx-auto mb-4 opacity-50" />
-          <p>{{ error }}</p>
-        </div>
-      </div>
-      
-      <!-- Image display (placeholder) -->
-      <div 
-        v-else
-        class="relative"
-        :style="{
-          transform: `scale(${zoom / 100}) rotate(${rotation}deg) scaleX(${flipH ? -1 : 1}) scaleY(${flipV ? -1 : 1})`,
-          transition: 'transform 0.2s ease'
-        }"
-      >
-        <div 
-          class="w-[512px] h-[512px] bg-black flex items-center justify-center border-2 border-gray-700"
-          :class="{ 'cursor-move': activeTool === 'pan', 'cursor-crosshair': activeTool === 'windowLevel' || activeTool === 'measure' }"
-        >
-          <div class="text-center text-gray-500">
-            <Image class="w-24 h-24 mx-auto mb-4 opacity-30" />
-            <p>DICOM Image Viewport</p>
-            <p class="text-sm mt-2">{{ currentImageIndex + 1 }} / {{ totalImages }}</p>
-            <p class="text-xs mt-4 opacity-50">
-              Window: {{ windowCenter }} | Level: {{ windowWidth }}
-            </p>
-            <!-- Mouse position indicator -->
-            <p v-if="isMouseOverViewer" class="text-xs mt-2 text-blue-400">
-              Mouse: {{ Math.round(mouseX) }}, {{ Math.round(mouseY) }}
-            </p>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Image navigation -->
-      <div class="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-4">
-        <button
-          @click="prevImage"
-          :disabled="currentImageIndex === 0"
-          class="px-3 py-1 bg-gray-800 text-gray-300 rounded disabled:opacity-50"
-        >
-          Previous
-        </button>
-        <span class="text-gray-300 text-sm">
-          {{ currentImageIndex + 1 }} / {{ totalImages }}
-        </span>
-        <button
-          @click="nextImage"
-          :disabled="currentImageIndex >= totalImages - 1"
-          class="px-3 py-1 bg-gray-800 text-gray-300 rounded disabled:opacity-50"
-        >
-          Next
         </button>
       </div>
     </div>
     
-    <!-- Status bar -->
-    <div class="bg-gray-800 px-4 py-1 flex items-center justify-between text-xs text-gray-400">
-      <div class="flex items-center gap-4">
-        <span>Study: {{ studyId || 'N/A' }}</span>
-        <span>Zoom: {{ zoom }}%</span>
-        <span>Rotation: {{ rotation }}°</span>
-        <span v-if="isMobile" class="text-blue-400">Mobile</span>
-        <span v-else-if="isTablet" class="text-blue-400">Tablet</span>
+    <!-- Info Panel -->
+    <div class="info-panel">
+      <div class="info-item">
+        <span class="label">W/L:</span>
+        <span class="value">{{ windowCenter }} / {{ windowWidth }}</span>
       </div>
-      <div class="flex items-center gap-4">
-        <span>WC: {{ windowCenter }}</span>
-        <span>WW: {{ windowWidth }}</span>
-        <span>Viewport: {{ Math.round(viewerWidth) }}x{{ Math.round(viewerHeight) }}</span>
+      <div v-if="rows && cols" class="info-item">
+        <span class="label">Size:</span>
+        <span class="value">{{ cols }} x {{ rows }}</span>
+      </div>
+      <div class="info-item">
+        <span class="label">Bits:</span>
+        <span class="value">{{ bitsAllocated }}</span>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.dicom-viewer {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+  background: #0a0a0a;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.loading-overlay,
+.error-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 10;
+}
+
+.canvas-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center center;
+}
+
+.dicom-canvas {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.toolbar {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 8px;
+  backdrop-filter: blur(8px);
+}
+
+.tool-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  border-right: 1px solid #333;
+}
+
+.tool-group:last-child {
+  border-right: none;
+}
+
+.tool-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  background: transparent;
+  color: #888;
+  transition: all 0.2s;
+}
+
+.tool-btn:hover {
+  background: #333;
+  color: #fff;
+}
+
+.tool-btn.active {
+  background: #2563eb;
+  color: #fff;
+}
+
+.tool-btn.text-xs {
+  width: auto;
+  padding: 0 8px;
+  font-size: 11px;
+}
+
+.zoom-value {
+  font-size: 12px;
+  color: #888;
+  min-width: 48px;
+  text-align: center;
+}
+
+.info-panel {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.info-item {
+  display: flex;
+  gap: 8px;
+}
+
+.info-item .label {
+  color: #666;
+}
+
+.info-item .value {
+  color: #ccc;
+  font-family: monospace;
+}
+</style>

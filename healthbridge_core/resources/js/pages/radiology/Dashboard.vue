@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
+import { Head, router } from '@inertiajs/vue3';
+import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import RadiologyWorklist from '@/components/radiology/RadiologyWorklist.vue';
+import { Button } from '@/components/ui/button';
 import { ref } from 'vue';
+import { UserPlus, FilePlus } from 'lucide-vue-next';
 
 interface Study {
     id: number;
@@ -54,7 +57,7 @@ const isLoading = ref(false);
 
 // Methods
 const selectStudy = (studyId: number) => {
-    selectedStudyId.value = studyId;
+    router.visit(`/radiology/studies/${studyId}`);
 };
 
 const getPriorityColor = (priority: string) => {
@@ -104,6 +107,25 @@ const formatWaitingTime = (minutes: number) => {
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex h-full flex-1 flex-col gap-6 p-6">
+            <!-- Header with Register Patient Button -->
+            <div class="flex items-center justify-between">
+                <h1 class="text-2xl font-bold">Radiology Dashboard</h1>
+                <div class="flex gap-2">
+                    <Link href="/radiology/studies/new">
+                        <Button class="gap-2">
+                            <FilePlus class="h-4 w-4" />
+                            New Study
+                        </Button>
+                    </Link>
+                    <Link href="/patients/new">
+                        <Button variant="outline" class="gap-2">
+                            <UserPlus class="h-4 w-4" />
+                            Register Patient
+                        </Button>
+                    </Link>
+                </div>
+            </div>
+
             <!-- Stats Cards -->
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
                 <div class="rounded-lg border bg-card p-6 shadow-sm">

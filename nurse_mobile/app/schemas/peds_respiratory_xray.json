@@ -1,0 +1,508 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "id": "peds_respiratory_xray_triage",
+  "version": "2.0.0",
+  "title": "Pediatric Respiratory Assessment with X-ray Triage",
+  "description": "Complete IMCI-based assessment plus X-ray acquisition, AI triage, referral guidance, treatment course, and discharge workflow",
+  "protocol": "WHO_IMCI + XRAY_TRIAGE + DISCHARGE",
+  "applicableAgeRange": {
+    "minMonths": 2,
+    "maxMonths": 59
+  },
+  "estimatedCompletionMinutes": 25,
+  "workflow": [
+    {
+      "id": "patient_info",
+      "name": "Patient Information",
+      "clinicalStep": 1,
+      "allowedTransitions": ["danger_signs"]
+    },
+    {
+      "id": "danger_signs",
+      "name": "General Danger Signs",
+      "clinicalStep": 2,
+      "allowedTransitions": ["symptoms"],
+      "transitionGuard": {
+        "condition": {
+          "field": "danger_signs_any",
+          "operator": "eq",
+          "value": true
+        },
+        "message": "Child has danger signs. Complete assessment but prioritize urgent referral."
+      }
+    },
+    {
+      "id": "symptoms",
+      "name": "Respiratory Symptoms",
+      "clinicalStep": 3,
+      "allowedTransitions": ["measurements"]
+    },
+    {
+      "id": "measurements",
+      "name": "Clinical Measurements",
+      "clinicalStep": 4,
+      "allowedTransitions": ["observations"]
+    },
+    {
+      "id": "observations",
+      "name": "Clinical Observations",
+      "clinicalStep": 5,
+      "allowedTransitions": ["assessment"]
+    },
+    {
+      "id": "assessment",
+      "name": "Classification",
+      "clinicalStep": 6,
+      "allowedTransitions": ["xray_decision"]
+    },
+    {
+      "id": "xray_decision",
+      "name": "X-Ray Decision",
+      "clinicalStep": 7,
+      "allowedTransitions": ["xray_capture", "treatment", "referral"]
+    },
+    {
+      "id": "xray_capture",
+      "name": "X-Ray Acquisition",
+      "clinicalStep": 8,
+      "allowedTransitions": ["xray_analysis"]
+    },
+    {
+      "id": "xray_analysis",
+      "name": "AI X-Ray Analysis",
+      "clinicalStep": 9,
+      "allowedTransitions": ["treatment"]
+    },
+    {
+      "id": "treatment",
+      "name": "Treatment Plan",
+      "clinicalStep": 10,
+      "allowedTransitions": ["discharge"]
+    },
+    {
+      "id": "referral",
+      "name": "Referral",
+      "clinicalStep": 11,
+      "allowedTransitions": ["discharge"]
+    },
+    {
+      "id": "discharge",
+      "name": "Discharge Summary",
+      "clinicalStep": 12,
+      "allowedTransitions": []
+    }
+  ],
+  "sections": [
+    {
+      "id": "patient_info",
+      "name": "Patient Information",
+      "fields": [
+        {
+          "id": "patient_id",
+          "type": "string",
+          "label": "Patient ID",
+          "required": true,
+          "validation": {
+            "pattern": "^[A-Z0-9]{6,10}$"
+          }
+        },
+        {
+          "id": "patient_name",
+          "type": "string",
+          "label": "Patient Name",
+          "required": true
+        },
+        {
+          "id": "age_months",
+          "type": "integer",
+          "label": "Age (months)",
+          "required": true,
+          "validation": {
+            "min": 2,
+            "max": 59
+          }
+        },
+        {
+          "id": "weight_kg",
+          "type": "number",
+          "label": "Weight (kg)",
+          "required": true,
+          "validation": {
+            "min": 3,
+            "max": 30
+          }
+        }
+      ]
+    },
+    {
+      "id": "danger_signs",
+      "name": "General Danger Signs",
+      "fields": [
+        {
+          "id": "danger_signs_any",
+          "type": "boolean",
+          "label": "Any general danger sign present",
+          "required": true
+        },
+        {
+          "id": "danger_signs_unable_drink",
+          "type": "boolean",
+          "label": "Unable to drink/breastfeed"
+        },
+        {
+          "id": "danger_signs_vomits_everything",
+          "type": "boolean",
+          "label": "Vomits everything"
+        },
+        {
+          "id": "danger_signs_convulsions",
+          "type": "boolean",
+          "label": "Convulsions"
+        },
+        {
+          "id": "danger_signs_lethargic",
+          "type": "boolean",
+          "label": "Lethargic or unconscious"
+        }
+      ]
+    },
+    {
+      "id": "symptoms",
+      "name": "Respiratory Symptoms",
+      "fields": [
+        {
+          "id": "cough_duration_days",
+          "type": "integer",
+          "label": "Cough duration (days)",
+          "required": true
+        },
+        {
+          "id": "difficulty_breathing",
+          "type": "boolean",
+          "label": "Difficulty breathing",
+          "required": true
+        },
+        {
+          "id": "wheezing",
+          "type": "boolean",
+          "label": "Wheezing"
+        },
+        {
+          "id": "chest_indrawing",
+          "type": "boolean",
+          "label": "Chest indrawing"
+        },
+        {
+          "id": "stridor",
+          "type": "boolean",
+          "label": "Stridor"
+        }
+      ]
+    },
+    {
+      "id": "measurements",
+      "name": "Clinical Measurements",
+      "fields": [
+        {
+          "id": "respiratory_rate",
+          "type": "integer",
+          "label": "Respiratory rate (breaths/min)",
+          "required": true,
+          "validation": {
+            "min": 10,
+            "max": 80
+          }
+        },
+        {
+          "id": "oxygen_saturation",
+          "type": "integer",
+          "label": "SpO2 (%)",
+          "validation": {
+            "min": 70,
+            "max": 100
+          }
+        },
+        {
+          "id": "temperature_celsius",
+          "type": "number",
+          "label": "Temperature (°C)",
+          "validation": {
+            "min": 35.0,
+            "max": 42.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "observations",
+      "name": "Clinical Observations",
+      "fields": [
+        {
+          "id": "lung_sounds",
+          "type": "select",
+          "label": "Lung sounds",
+          "options": [
+            {"value": "clear", "label": "Clear"},
+            {"value": "wheezes", "label": "Wheezes"},
+            {"value": "crackles", "label": "Crackles"},
+            {"value": "diminished", "label": "Diminished"},
+            {"value": "rhonchi", "label": "Rhonchi"}
+          ]
+        },
+        {
+          "id": "chest_xray_requested",
+          "type": "boolean",
+          "label": "Chest X-ray requested",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "assessment",
+      "name": "Classification",
+      "fields": [
+        {
+          "id": "classification",
+          "type": "select",
+          "label": "Classification",
+          "required": true,
+          "options": [
+            {"value": "severe_pneumonia", "label": "Severe Pneumonia - Urgent Referral"},
+            {"value": "pneumonia", "label": "Pneumonia - Treat with antibiotics"},
+            {"value": "no_pneumonia", "label": "No Pneumonia - No antibiotics"},
+            {"value": "very_severe_disease", "label": "Very Severe Disease - Emergency Referral"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "xray_decision",
+      "name": "X-Ray Decision",
+      "fields": [
+        {
+          "id": "xray_clinical_indication",
+          "type": "select",
+          "label": "Clinical indication for X-ray",
+          "required": true,
+          "options": [
+            {"value": "severe_classification", "label": "Severe classification"},
+            {"value": "treatment_failure", "label": "Treatment failure"},
+            {"value": "uncertain_diagnosis", "label": "Uncertain diagnosis"},
+            {"value": "complicated_pneumonia", "label": "Suspected complicated pneumonia"}
+          ]
+        },
+        {
+          "id": "xray_consent_obtained",
+          "type": "boolean",
+          "label": "Consent obtained for X-ray",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "xray_capture",
+      "name": "X-Ray Acquisition",
+      "fields": [
+        {
+          "id": "xray_device_id",
+          "type": "string",
+          "label": "X-ray device ID"
+        },
+        {
+          "id": "xray_timestamp",
+          "type": "datetime",
+          "label": "X-ray capture time"
+        },
+        {
+          "id": "xray_quality_check",
+          "type": "select",
+          "label": "Image quality",
+          "options": [
+            {"value": "adequate", "label": "Adequate for interpretation"},
+            {"value": "repeat_required", "label": "Repeat required"}
+          ]
+        },
+        {
+          "id": "xray_image_stored",
+          "type": "boolean",
+          "label": "X-ray image stored in system"
+        }
+      ]
+    },
+    {
+      "id": "xray_analysis",
+      "name": "AI X-Ray Analysis",
+      "fields": [
+        {
+          "id": "ai_analysis_requested",
+          "type": "boolean",
+          "label": "Request AI analysis"
+        },
+        {
+          "id": "ai_finding",
+          "type": "select",
+          "label": "AI finding",
+          "options": [
+            {"value": "normal", "label": "Normal"},
+            {"value": "infiltrate", "label": "Infiltrate/Consolidation"},
+            {"value": "effusion", "label": "Pleural effusion"},
+            {"value": "pneumothorax", "label": "Pneumothorax"},
+            {"value": "other", "label": "Other finding"}
+          ]
+        },
+        {
+          "id": "ai_confidence",
+          "type": "integer",
+          "label": "AI confidence (%)",
+          "validation": {
+            "min": 0,
+            "max": 100
+          }
+        },
+        {
+          "id": "radiologist_review_required",
+          "type": "boolean",
+          "label": "Radiologist review required"
+        }
+      ]
+    },
+    {
+      "id": "treatment",
+      "name": "Treatment Plan",
+      "fields": [
+        {
+          "id": "antibiotic_prescribed",
+          "type": "boolean",
+          "label": "Antibiotic prescribed"
+        },
+        {
+          "id": "antibiotic_name",
+          "type": "select",
+          "label": "Antibiotic",
+          "options": [
+            {"value": "amoxicillin", "label": "Amoxicillin"},
+            {"value": "amoxicillin_clavulanate", "label": "Amoxicillin-Clavulanate"},
+            {"value": "ceftriaxone", "label": "Ceftriaxone"},
+            {"value": "azithromycin", "label": "Azithromycin"},
+            {"value": "other", "label": "Other"}
+          ]
+        },
+        {
+          "id": "dose_mg_kg",
+          "type": "number",
+          "label": "Dose (mg/kg)"
+        },
+        {
+          "id": "frequency_per_day",
+          "type": "integer",
+          "label": "Frequency (times per day)"
+        },
+        {
+          "id": "duration_days",
+          "type": "integer",
+          "label": "Duration (days)"
+        },
+        {
+          "id": "supportive_care",
+          "type": "multiselect",
+          "label": "Supportive care",
+          "options": [
+            {"value": "oxygen", "label": "Oxygen therapy"},
+            {"value": "hydration", "label": "IV fluids"},
+            {"value": " antipyretic", "label": "Antipyretics"},
+            {"value": "bronchodilator", "label": "Bronchodilator"},
+            {"value": "nutrition", "label": "Nutritional support"}
+          ]
+        },
+        {
+          "id": "follow_up_date",
+          "type": "date",
+          "label": "Follow-up date"
+        }
+      ]
+    },
+    {
+      "id": "referral",
+      "name": "Referral",
+      "fields": [
+        {
+          "id": "referral_required",
+          "type": "boolean",
+          "label": "Referral required"
+        },
+        {
+          "id": "referral_facility",
+          "type": "string",
+          "label": "Referral facility"
+        },
+        {
+          "id": "referral_reason",
+          "type": "multiselect",
+          "label": "Reason for referral",
+          "options": [
+            {"value": "severe_pneumonia", "label": "Severe pneumonia"},
+            {"value": "treatment_failure", "label": "Treatment failure"},
+            {"value": "complication", "label": "Complication"},
+            {"value": "equipment", "label": "Equipment not available"}
+          ]
+        },
+        {
+          "id": "referral_transport_arranged",
+          "type": "boolean",
+          "label": "Transport arranged"
+        }
+      ]
+    },
+    {
+      "id": "discharge",
+      "name": "Discharge Summary",
+      "fields": [
+        {
+          "id": "discharge_status",
+          "type": "select",
+          "label": "Discharge status",
+          "required": true,
+          "options": [
+            {"value": "discharged_home", "label": "Discharged home"},
+            {"value": "admitted", "label": "Admitted to hospital"},
+            {"value": "transferred", "label": "Transferred to another facility"},
+            {"value": "left_ama", "label": "Left against medical advice"}
+          ]
+        },
+        {
+          "id": "discharge_instructions",
+          "type": "textarea",
+          "label": "Discharge instructions"
+        },
+        {
+          "id": "warning_signs_to_return",
+          "type": "multiselect",
+          "label": "Warning signs to return immediately",
+          "options": [
+            {"value": "difficulty_breathing", "label": "Difficulty breathing"},
+            {"value": "unable_drink", "label": "Unable to drink"},
+            {"value": "worsening", "label": "Condition worsening"},
+            {"value": "fever_persists", "label": "Fever persists >3 days"}
+          ]
+        },
+        {
+          "id": "discharge_summary_complete",
+          "type": "boolean",
+          "label": "Discharge summary complete",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "created": "2025-01-01T00:00:00Z",
+    "lastUpdated": "2026-02-22T14:40:00Z",
+    "validityPeriod": {
+      "start": "2025-01-01",
+      "end": "2026-12-31"
+    },
+    "whoReference": "IMCI Chart 1: Cough or Difficulty Breathing + X-ray Triage Protocol",
+    "trainingRequired": true,
+    "requiresSupervisorReview": true
+  }
+}

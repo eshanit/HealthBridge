@@ -5,7 +5,6 @@ namespace App\Console\Commands;
 use App\Services\CouchDbService;
 use App\Services\SyncService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class CouchSyncWorker extends Command
@@ -15,187 +14,164 @@ class CouchSyncWorker extends Command
      *
      * @var string
      */
-    protected $signature = 'couchdb:sync 
-                            {--daemon : Run as a continuous daemon} 
-                            {--poll=4 : Polling interval in seconds}
-                            {--batch=100 : Maximum batch size per poll}
-                            {--reset : Reset sequence and process all documents from beginning}';
+    protected $signature = 'sync:couch 
+                            {--interval=4 : Interval in seconds between sync cycles}
+                            {--limit=100 : Maximum documents to process per cycle}
+                            {--once : Run only once instead of continuously}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Sync CouchDB changes to MySQL';
+    protected $description = 'CouchDB to MySQL sync worker. Polls CouchDB for changes and syncs to MySQL.';
 
-    protected CouchDbService $couchDb;
-    protected SyncService $syncService;
-    protected string $sequenceCacheKey = 'couchdb_sync_sequence';
+    /**
+     * Last processed sequence
+     */
+    protected string $lastSequence = '0';
+
+    /**
+     * Create a new command instance.
+     *
+     * @param CouchDbService $couchDb CouchDB service for fetching changes
+     * @param SyncService $syncService Sync service for persisting to MySQL
+     */
+    public function __construct(
+        protected CouchDbService $couchDb,
+        protected SyncService $syncService
+    ) {
+        parent::__construct();
+    }
 
     /**
      * Execute the console command.
      */
-    public function handle(CouchDbService $couchDb, SyncService $syncService): int
+    public function handle(): int
     {
-        $this->couchDb = $couchDb;
-        $this->syncService = $syncService;
+        $interval = (int) $this->option('interval');
+        $limit = (int) $this->option('limit');
+        $runOnce = $this->option('once');
 
-        $this->info('Starting CouchDB Sync Worker...');
-        $this->info('Database: ' . $couchDb->getDatabase());
+        $this->info("CouchDB Sync Worker starting...");
+        $this->info("Interval: {$interval}s, Limit: {$limit} docs/cycle");
+        
+        // Load last sequence from storage if available
+        $this->lastSequence = $this->getLastSequence();
 
-        // Check if CouchDB is accessible
-        if (!$couchDb->databaseExists()) {
-            $this->error('CouchDB database not found: ' . $couchDb->getDatabase());
-            return self::FAILURE;
+        if ($runOnce) {
+            return $this->runSyncCycle($limit) ? Command::SUCCESS : Command::FAILURE;
         }
 
-        $this->info('CouchDB connection established.');
-
-        // Handle --reset option
-        if ($this->option('reset')) {
-            $this->resetSequence();
-        }
-
-        if ($this->option('daemon')) {
-            $this->runContinuous();
-        } else {
-            $this->runOnce();
-        }
-
-        return self::SUCCESS;
-    }
-
-    /**
-     * Run the sync worker once.
-     */
-    protected function runOnce(): void
-    {
-        $lastSeq = $this->getLastSequence();
-        $this->info("Starting from sequence: {$lastSeq}");
-
-        $result = $this->processChanges($lastSeq);
-
-        $this->info("Processed {$result['count']} changes.");
-        $this->info("New sequence: {$result['lastSeq']}");
-    }
-
-    /**
-     * Run the sync worker continuously.
-     */
-    protected function runContinuous(): void
-    {
-        $pollInterval = (int) $this->option('poll');
-        $lastSeq = $this->getLastSequence();
-
-        $this->info("Running in daemon mode (poll interval: {$pollInterval}s)");
-        $this->info("Starting from sequence: {$lastSeq}");
-
+        // Continuous mode
         while (true) {
+            $this->info("Running sync cycle...");
+            
             try {
-                $result = $this->processChanges($lastSeq);
-
-                if ($result['count'] > 0) {
-                    $this->info("[" . now()->toDateTimeString() . "] Processed {$result['count']} changes");
+                $processed = $this->runSyncCycle($limit);
+                
+                if ($processed > 0) {
+                    $this->info("Processed {$processed} documents");
+                } else {
+                    $this->info("No new documents to sync");
                 }
-
-                $lastSeq = $result['lastSeq'];
-                $this->saveLastSequence($lastSeq);
-
             } catch (\Exception $e) {
                 $this->error("Sync error: " . $e->getMessage());
-                Log::error('CouchDB sync error', [
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString(),
-                ]);
-
-                // Backoff on error
-                sleep(min($pollInterval * 2, 30));
+                Log::error('CouchSyncWorker error', ['error' => $e->getMessage()]);
             }
 
-            sleep($pollInterval);
+            $this->saveLastSequence();
+            sleep($interval);
         }
+
+        return Command::SUCCESS;
     }
 
     /**
-     * Process changes from CouchDB.
+     * Run a single sync cycle
      */
-    protected function processChanges(string $since): array
+    protected function runSyncCycle(int $limit): int
     {
-        $batchSize = (int) $this->option('batch');
-
         try {
-            $changes = $this->couchDb->getChanges($since, [
-                'include_docs' => 'true',
-                'limit' => $batchSize,
+            // Get changes since last sequence
+            $changes = $this->couchDb->getChanges($this->lastSequence, [
+                'limit' => $limit,
+                'include_docs' => true,
             ]);
+
+            $results = $changes['results'] ?? [];
+            
+            if (empty($results)) {
+                return 0;
+            }
+
+            $processed = 0;
+            
+            foreach ($results as $change) {
+                if (!isset($change['doc'])) {
+                    continue;
+                }
+
+                $doc = $change['doc'];
+                $docId = $doc['_id'] ?? '';
+                $docType = $doc['type'] ?? '';
+
+                // Only process our document types
+                $allowedTypes = [
+                    'clinicalPatient',
+                    'clinicalSession', 
+                    'clinicalForm',
+                    'aiLog',
+                    'clinicalReport',
+                    'radiologyStudy',
+                ];
+
+                if (!in_array($docType, $allowedTypes)) {
+                    continue;
+                }
+
+                try {
+                    $this->syncService->upsert($doc);
+                    $processed++;
+                    
+                    $this->line("Synced {$docType}: {$docId}");
+                } catch (\Exception $e) {
+                    $this->error("Failed to sync {$docId}: " . $e->getMessage());
+                    Log::error('CouchSyncWorker: Document sync failed', [
+                        'id' => $docId,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            // Update sequence
+            $this->lastSequence = $changes['last_seq'] ?? $this->lastSequence;
+
+            return $processed;
+
         } catch (\Exception $e) {
-            $this->error("Failed to get changes: " . $e->getMessage());
+            $this->error("Failed to fetch changes: " . $e->getMessage());
             throw $e;
         }
-
-        $results = $changes['results'] ?? [];
-        $count = 0;
-
-        foreach ($results as $change) {
-            // Skip deleted documents
-            if (isset($change['deleted']) && $change['deleted']) {
-                $this->handleDeletion($change);
-                continue;
-            }
-
-            // Process the document
-            if (isset($change['doc'])) {
-                $this->syncService->upsert($change['doc']);
-                $count++;
-            }
-        }
-
-        $lastSeq = $changes['last_seq'] ?? $since;
-
-        return [
-            'count' => $count,
-            'lastSeq' => $lastSeq,
-        ];
     }
 
     /**
-     * Handle a deleted document.
-     */
-    protected function handleDeletion(array $change): void
-    {
-        $id = $change['id'] ?? null;
-
-        if (!$id) {
-            return;
-        }
-
-        // Log the deletion - we don't actually delete from MySQL for audit purposes
-        Log::info('CouchDB document deleted', ['id' => $id]);
-        $this->warn("Document deleted: {$id}");
-    }
-
-    /**
-     * Get the last processed sequence number.
+     * Get last sequence from storage
+     * Uses file cache for persistence in production environments
      */
     protected function getLastSequence(): string
     {
-        return Cache::get($this->sequenceCacheKey, '0');
+        // Use file cache driver for persistence, fallback to default
+        $cacheStore = config('cache.default') === 'array' ? 'file' : config('cache.default');
+        return cache()->store($cacheStore)->get('couchdb_last_sequence', '0');
     }
 
     /**
-     * Save the last processed sequence number.
+     * Save last sequence to storage
      */
-    protected function saveLastSequence(string $seq): void
+    protected function saveLastSequence(): void
     {
-        Cache::forever($this->sequenceCacheKey, $seq);
-    }
-
-    /**
-     * Reset the sequence to start from the beginning.
-     */
-    public function resetSequence(): void
-    {
-        Cache::forget($this->sequenceCacheKey);
-        $this->info('Sequence reset to 0');
+        $cacheStore = config('cache.default') === 'array' ? 'file' : config('cache.default');
+        cache()->store($cacheStore)->put('couchdb_last_sequence', $this->lastSequence, 86400);
     }
 }

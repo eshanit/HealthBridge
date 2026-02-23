@@ -6,12 +6,22 @@ use App\Http\Controllers\Controller;
 use App\Models\DiagnosticReport;
 use App\Models\RadiologyStudy;
 use App\Models\User;
+use App\Services\RadiologyImageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 
 class RadiologyController extends Controller
 {
+    /**
+     * Image processing service.
+     */
+    protected RadiologyImageService $imageService;
+
+    public function __construct(RadiologyImageService $imageService)
+    {
+        $this->imageService = $imageService;
+    }
     /**
      * Report templates by modality and body part.
      */
@@ -72,9 +82,6 @@ class RadiologyController extends Controller
     /**
      * Display the radiology dashboard.
      */
-    /**
-     * Display the radiology dashboard.
-     */
     public function index()
     {
         $user = Auth::user();
@@ -105,6 +112,14 @@ class RadiologyController extends Controller
             'stats' => $stats,
             'recentStudies' => $recentStudies,
         ]);
+    }
+
+    /**
+     * Display the new study form.
+     */
+    public function newStudy()
+    {
+        return inertia('radiology/NewStudy');
     }
 
     /**
@@ -185,7 +200,9 @@ class RadiologyController extends Controller
             abort(403, 'You do not have permission to view this study');
         }
 
-        return response()->json($study);
+        return inertia('radiology/StudyDetail', [
+            'study' => $study,
+        ]);
     }
 
     /**
@@ -204,6 +221,56 @@ class RadiologyController extends Controller
         return response()->json([
             'message' => 'Study accepted successfully',
             'study' => $study->fresh(),
+        ]);
+    }
+
+    /**
+     * Upload images for a study.
+     */
+    public function uploadImages(Request $request, string $studyId)
+    {
+        $study = RadiologyStudy::findOrFail($studyId);
+        
+        // Check if images already exist
+        if ($study->images_uploaded) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Images already uploaded for this study',
+            ], 422);
+        }
+        
+        $validated = $request->validate(RadiologyStudy::imageUploadRules());
+        
+        // Process the image
+        $result = $this->imageService->processUpload(
+            $request->file('image'),
+            $study->id
+        );
+        
+        if (!$result['success']) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Image processing failed',
+                'errors' => $result['errors'],
+            ], 422);
+        }
+        
+        // Update study with image paths
+        $study->update([
+            'dicom_storage_path' => $result['original_path'],
+            'preview_image_path' => $result['preview_path'],
+            'thumbnail_path' => $result['thumbnail_path'],
+            'image_metadata' => $result['metadata'],
+            'images_uploaded' => true,
+            'images_available_at' => now(),
+            'status' => 'in_progress',
+        ]);
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Images uploaded successfully',
+            'study' => $study->fresh(),
+            'metadata' => $result['metadata'],
         ]);
     }
 
@@ -599,6 +666,190 @@ class RadiologyController extends Controller
         return response()->json([
             'message' => 'Report draft auto-saved',
             'saved_at' => now()->toIso8601String(),
+        ]);
+    }
+
+    /**
+     * Get study image for viewing.
+     * Supports both standard images (PNG, JPG) and DICOM files.
+     * For DICOM files, returns raw binary data for client-side parsing by CornerstoneJS.
+     */
+    public function getImage(string $studyId)
+    {
+        try {
+            $study = RadiologyStudy::findOrFail($studyId);
+            
+            if (!$study->images_uploaded) {
+                return response()->json([
+                    'message' => 'No image available for this study',
+                    'study_id' => $studyId,
+                    'images_uploaded' => $study->images_uploaded,
+                ], 404);
+            }
+            
+            // Try to serve preview image first (for standard formats like PNG, JPG)
+            if ($study->preview_image_path) {
+                $filePath = storage_path('app/public/' . $study->preview_image_path);
+                
+                if (file_exists($filePath)) {
+                    $extension = pathinfo($filePath, PATHINFO_EXTENSION);
+                    $mimeTypes = [
+                        'png' => 'image/png',
+                        'jpg' => 'image/jpeg',
+                        'jpeg' => 'image/jpeg',
+                        'dcm' => 'application/dicom',
+                    ];
+                    $mimeType = $mimeTypes[$extension] ?? 'application/octet-stream';
+                    
+                    // If it's a DICOM file, serve as binary for CornerstoneJS
+                    if ($extension === 'dcm') {
+                        return response()->file($filePath, [
+                            'Content-Type' => 'application/dicom',
+                            'X-Content-Type-Options' => 'nosniff',
+                            'Accept-Ranges' => 'bytes',
+                        ]);
+                    }
+                    
+                    return response()->file($filePath);
+                }
+            }
+            
+            // Fall back to original DICOM file
+            if ($study->dicom_storage_path) {
+                $filePath = storage_path('app/' . $study->dicom_storage_path);
+                
+                if (!file_exists($filePath)) {
+                    // Try public path
+                    $filePath = storage_path('app/public/' . $study->dicom_storage_path);
+                }
+                
+                if (file_exists($filePath)) {
+                    $metadata = $study->image_metadata ?? [];
+                    
+                    // Serve DICOM file with proper headers for CornerstoneJS
+                    return response()->stream(function () use ($filePath) {
+                        readfile($filePath);
+                    }, 200, [
+                        'Content-Type' => 'application/dicom',
+                        'Content-Length' => filesize($filePath),
+                        'X-Content-Type-Options' => 'nosniff',
+                        'Accept-Ranges' => 'bytes',
+                        'X-DICOM-File' => 'true',
+                    ]);
+                }
+            }
+            
+            return response()->json([
+                'message' => 'Image file not found on disk',
+                'study_id' => $studyId,
+                'dicom_storage_path' => $study->dicom_storage_path,
+            ], 404);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'message' => 'Study not found',
+                'study_id' => $studyId,
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error loading image',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Get study preview image.
+     * For DICOM, serves the raw file for client-side rendering.
+     */
+    public function getPreview(string $studyId)
+    {
+        try {
+            $study = RadiologyStudy::findOrFail($studyId);
+            
+            if (!$study->images_uploaded || !$study->preview_image_path) {
+                // Fall back to original DICOM if no preview
+                if ($study->dicom_storage_path) {
+                    return $this->serveDicomFile($study);
+                }
+                
+                return response()->json([
+                    'message' => 'No preview available for this study',
+                    'study_id' => $studyId,
+                    'images_uploaded' => $study->images_uploaded,
+                    'preview_image_path' => $study->preview_image_path,
+                ], 404);
+            }
+            
+            $filePath = storage_path('app/public/' . $study->preview_image_path);
+            
+            if (!file_exists($filePath)) {
+                // Try original path
+                $filePath = storage_path('app/' . $study->preview_image_path);
+            }
+            
+            if (!file_exists($filePath)) {
+                // Fall back to original DICOM
+                if ($study->dicom_storage_path) {
+                    return $this->serveDicomFile($study);
+                }
+                
+                return response()->json([
+                    'message' => 'Preview file not found on disk',
+                    'study_id' => $studyId,
+                    'expected_path' => $filePath,
+                ], 404);
+            }
+            
+            $extension = pathinfo($filePath, PATHINFO_EXTENSION);
+            
+            // If it's a DICOM file, serve for CornerstoneJS
+            if ($extension === 'dcm') {
+                return $this->serveDicomFile($study);
+            }
+            
+            return response()->file($filePath);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'message' => 'Study not found',
+                'study_id' => $studyId,
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error loading preview',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+    
+    /**
+     * Serve a DICOM file with proper headers for CornerstoneJS.
+     */
+    private function serveDicomFile(RadiologyStudy $study): \Illuminate\Http\Response
+    {
+        $filePath = storage_path('app/' . $study->dicom_storage_path);
+        
+        if (!file_exists($filePath)) {
+            // Try public path
+            $filePath = storage_path('app/public/' . $study->dicom_storage_path);
+        }
+        
+        if (!file_exists($filePath)) {
+            return response()->json([
+                'message' => 'DICOM file not found',
+                'path' => $study->dicom_storage_path,
+            ], 404);
+        }
+        
+        return response()->stream(function () use ($filePath) {
+            readfile($filePath);
+        }, 200, [
+            'Content-Type' => 'application/dicom',
+            'Content-Length' => filesize($filePath),
+            'X-Content-Type-Options' => 'nosniff',
+            'Accept-Ranges' => 'bytes',
+            'X-DICOM-File' => 'true',
+            'X-Study-UID' => $study->study_instance_uid ?? '',
+            'X-Modality' => $study->modality ?? '',
         ]);
     }
 }

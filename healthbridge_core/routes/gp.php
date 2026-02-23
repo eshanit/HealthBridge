@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::middleware(['auth', 'verified', 'role:doctor|admin'])->prefix('gp')->name('gp.')->group(function () {
+Route::middleware(['auth', 'verified', 'role:doctor|radiologist|admin'])->prefix('gp')->name('gp.')->group(function () {
     
     // Dashboard
     Route::get('/dashboard', [GPDashboardController::class, 'index'])->name('dashboard');

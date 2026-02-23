@@ -1,0 +1,140 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "id": "radiology_study",
+  "version": "1.0.0",
+  "title": "Radiology Study Document",
+  "description": "CouchDB document schema for radiology study orders synced from nurse_mobile",
+  "type": "object",
+  "required": [
+    "_id",
+    "type",
+    "patientCpt",
+    "modality",
+    "clinicalIndication"
+  ],
+  "properties": {
+    "_id": {
+      "type": "string",
+      "pattern": "^radiology:[a-f0-9-]+$",
+      "description": "CouchDB document ID (format: radiology:UUID)"
+    },
+    "_rev": {
+      "type": "string",
+      "description": "CouchDB revision for conflict resolution"
+    },
+    "type": {
+      "type": "string",
+      "const": "radiologyStudy",
+      "description": "Document type for SyncService routing"
+    },
+    "patientCpt": {
+      "type": "string",
+      "description": "Patient CPT identifier"
+    },
+    "sessionCouchId": {
+      "type": "string",
+      "description": "Link to clinical session in CouchDB"
+    },
+    "modality": {
+      "type": "string",
+      "enum": ["XRAY", "CT", "MRI", "ULTRASOUND", "PET", "MAMMO", "FLUORO", "ANGIO"],
+      "description": "Imaging modality"
+    },
+    "bodyPart": {
+      "type": "string",
+      "description": "Body part being imaged"
+    },
+    "studyType": {
+      "type": "string",
+      "enum": ["Diagnostic", "Screening", "Follow-up", "Pre-operative", "Emergency"],
+      "description": "Type of study"
+    },
+    "clinicalIndication": {
+      "type": "string",
+      "description": "Clinical reason for the study"
+    },
+    "clinicalQuestion": {
+      "type": "string",
+      "description": "Specific question to be answered by imaging"
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["stat", "urgent", "routine", "scheduled"],
+      "default": "routine"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "ordered", "scheduled", "in_progress", "completed", "interpreted", "reported", "cancelled"],
+      "default": "ordered"
+    },
+    "createdBy": {
+      "type": "string",
+      "description": "User ID of nurse who ordered the study"
+    },
+    "orderedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the study was ordered"
+    },
+    "scheduledAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the study is scheduled"
+    },
+    "performedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the study was performed"
+    },
+    "imagesAvailableAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When images became available"
+    },
+    "studyCompletedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the study was completed"
+    },
+    "aiPriorityScore": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "AI-generated priority score (0-100)"
+    },
+    "aiCriticalFlag": {
+      "type": "boolean",
+      "description": "AI detected critical finding"
+    },
+    "aiPreliminaryReport": {
+      "type": "string",
+      "description": "AI-generated preliminary report"
+    },
+    "dicomSeriesCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of DICOM series"
+    },
+    "dicomStoragePath": {
+      "type": "string",
+      "description": "Path to stored DICOM files"
+    },
+    "assignedRadiologistId": {
+      "type": "integer",
+      "description": "ID of radiologist assigned to study"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "synced": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "additionalProperties": true
+}

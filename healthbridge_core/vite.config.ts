@@ -24,4 +24,27 @@ export default defineConfig({
             },
         }),
     ],
+    // Handle cornerstone and dicom-parser as external for browser
+    define: {
+        'process.env': {},
+    },
+    resolve: {
+        alias: {
+            // Map cornerstone-core to global if needed
+        },
+    },
+    optimizeDeps: {
+        include: ['dicom-parser'],
+    },
+    build: {
+        rollupOptions: {
+            external: ['cornerstone-core', 'cornerstone-wado-image-loader'],
+            output: {
+                globals: {
+                    'cornerstone-core': 'cornerstone',
+                    'cornerstone-wado-image-loader': 'cornerstoneWADOImageLoader',
+                },
+            },
+        },
+    },
 });

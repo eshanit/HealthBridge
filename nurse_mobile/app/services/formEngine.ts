@@ -90,12 +90,30 @@ class ClinicalFormEngine {
       const versionMap: Record<string, string> = {
         'peds_respiratory': '1.0.2',
         'peds_respiratory_treatment': '1.0.0',
+        'peds_respiratory_xray_triage': '2.0.0',
+      };
+
+      // Special file mapping for schemas where filename differs from schema ID
+      const fileNameMap: Record<string, string> = {
+        'peds_respiratory_xray_triage': 'peds_respiratory_xray',
+      };
+
+      // Schemas without version suffix in filename
+      const noVersionSuffix: Record<string, boolean> = {
+        'peds_respiratory_xray_triage': true,
       };
 
       const version = versionMap[schemaId] || '1.0.2';
-      const schemaUrl = version 
-        ? `/schemas/${schemaId}_v${version}.json`
-        : `/schemas/${schemaId}.json`;
+      const fileName = fileNameMap[schemaId] || schemaId;
+      let schemaUrl: string;
+      
+      if (noVersionSuffix[schemaId]) {
+        schemaUrl = `/schemas/${fileName}.json`;
+      } else {
+        schemaUrl = version 
+          ? `/schemas/${fileName}_v${version}.json`
+          : `/schemas/${fileName}.json`;
+      }
 
       console.log(`[ClinicalFormEngine] Fetching schema from: ${schemaUrl}`);
 

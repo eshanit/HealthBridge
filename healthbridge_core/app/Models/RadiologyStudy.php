@@ -15,32 +15,60 @@ class RadiologyStudy extends Model
      * The attributes that are mass assignable.
      */
     protected $fillable = [
+        // CouchDB integration
+        'couch_id',
+        'couch_rev',
+        'couch_updated_at',
+        
+        // Core identifiers
         'study_uuid',
         'study_instance_uid',
         'accession_number',
         'session_couch_id',
         'patient_cpt',
+        
+        // Relationships
         'referring_user_id',
         'assigned_radiologist_id',
+        
+        // Study details
         'modality',
         'body_part',
         'study_type',
         'clinical_indication',
         'clinical_question',
+        
+        // Status and priority
         'priority',
         'status',
         'procedure_status',
         'procedure_technician_id',
+        
+        // AI fields
         'ai_priority_score',
         'ai_critical_flag',
         'ai_preliminary_report',
+        
+        // DICOM
         'dicom_series_count',
         'dicom_storage_path',
+        
+        // Image fields
+        'images_uploaded',
+        'preview_image_path',
+        'thumbnail_path',
+        'image_metadata',
+        
+        // Timestamps
         'ordered_at',
         'scheduled_at',
         'performed_at',
         'images_available_at',
         'study_completed_at',
+        
+        // Sync metadata
+        'raw_document',
+        'synced_at',
     ];
 
     /**
@@ -48,11 +76,14 @@ class RadiologyStudy extends Model
      */
     protected $casts = [
         'ai_critical_flag' => 'boolean',
+        'images_uploaded' => 'boolean',
         'ordered_at' => 'datetime',
         'scheduled_at' => 'datetime',
         'performed_at' => 'datetime',
         'images_available_at' => 'datetime',
         'study_completed_at' => 'datetime',
+        'synced_at' => 'datetime',
+        'image_metadata' => 'array',
     ];
 
     /**
@@ -95,6 +126,51 @@ class RadiologyStudy extends Model
     ];
 
     /**
+     * Validation rules for study creation.
+     */
+    public static function creationRules(bool $requireImage = false): array
+    {
+        $rules = [
+            'patient_cpt' => 'required|string|exists:patients,cpt',
+            'modality' => 'required|in:' . implode(',', array_keys(self::MODALITIES)),
+            'body_part' => 'required|string|max:100',
+            'study_type' => 'required|string|max:255',
+            'clinical_indication' => 'required|string|max:1000',
+            'priority' => 'nullable|in:stat,urgent,routine,scheduled',
+        ];
+
+        return $rules;
+    }
+
+    /**
+     * Validation rules for image upload.
+     */
+    public static function imageUploadRules(): array
+    {
+        return [
+            'image' => 'required|file|mimes:dcm,dicom,jpeg,jpg,png,tiff,tif,zip|max:512000',
+        ];
+    }
+
+    /**
+     * Check if study can have a report generated.
+     */
+    public function canGenerateReport(): bool
+    {
+        return $this->images_uploaded && 
+               $this->status !== 'pending' && 
+               $this->status !== 'cancelled';
+    }
+
+    /**
+     * Check if images are required for this study.
+     */
+    public function requiresImages(): bool
+    {
+        return in_array($this->status, ['completed', 'interpreted', 'reported']);
+    }
+
+    /**
      * Get the patient associated with this study.
      */
     public function patient(): BelongsTo
@@ -123,7 +199,7 @@ class RadiologyStudy extends Model
      */
     public function diagnosticReports(): HasMany
     {
-        return $this->hasMany(DiagnosticReport::class);
+        return $this->hasMany(DiagnosticReport::class, 'study_id');
     }
 
     /**
@@ -131,7 +207,7 @@ class RadiologyStudy extends Model
      */
     public function consultations(): HasMany
     {
-        return $this->hasMany(Consultation::class);
+        return $this->hasMany(Consultation::class, 'study_id');
     }
 
     /**

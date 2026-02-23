@@ -72,6 +72,10 @@ async function loadSchema(schemaId: string = 'peds_respiratory'): Promise<Prompt
     // Load the appropriate schema based on schemaId
     if (schemaId === 'peds_respiratory_treatment') {
       schemaModule = await import('~/schemas/prompts/peds_respiratory_treatment_schema.json');
+    } else if (schemaId === 'peds_respiratory_xray_triage') {
+      // X-Ray triage schema - use the same schema as peds_respiratory with extended sections
+      schemaModule = await import('~/schemas/prompts/peds_respiratory_schema.json');
+      console.log(`[SchemaLoader] Using peds_respiratory schema for X-Ray triage (${schemaId})`);
     } else {
       // Default to assessment schema
       schemaModule = await import('~/schemas/prompts/peds_respiratory_schema.json');
@@ -793,7 +797,8 @@ async function simulateStreaming(
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`[AI Fallback] ❌ API error: ${response.status} ${errorText.slice(0, 200)}`);
-      throw new Error(`AI service error: ${response.status}`);
+      console.error(`[AI Fallback] Full error response:`, errorText);
+      throw new Error(`AI service error: ${response.status} - ${errorText.slice(0, 100)}`);
     }
 
     const data = await response.json();

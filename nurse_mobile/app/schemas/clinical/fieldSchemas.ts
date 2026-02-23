@@ -186,16 +186,107 @@ export type PediatricRespiratoryInput = z.infer<typeof pediatricRespiratorySchem
 
 export const schemas = {
   patient_name: z.string().min(1).max(100),
-  patient_age_months: numberSchema.refine((val) => val >= 1 && val <= 59, "Age must be between 1-59 months"),
+  patient_age_months: numberSchema.refine((val) => val >= 2 && val <= 59, "Age must be between 2-59 months"),
   patient_weight_kg: numberSchema.refine((val) => val >= 1 && val <= 99.9, "Weight must be between 1-99.9 kg"),
-  chiefComplaint: z.string().min(3).max(200),
-  dangerSigns: dangerSignsSchema,
-  respiratoryRate: z.number().min(10).max(120),
-  oxygenSaturation: oxygenSaturationSchema,
-  temperature: temperatureSchema,
-  palmorPallor: z.enum(['normal', 'mild', 'severe']),
-  feedingStatus: z.enum(['breastfeeding', 'bottle', 'solid', 'poor', 'unable']),
-  coughDuration: z.enum(['<3days', '3-7days', '1-2weeks', '>2weeks']),
+  chief_complaint: z.string().min(3).max(200),
+  
+  // Danger signs
+  unable_to_drink: z.boolean(),
+  vomits_everything: z.boolean(),
+  convulsions: z.boolean(),
+  lethargic_unconscious: z.boolean(),
+  cough_present: z.boolean(),
+  cough_duration_days: numberSchema.refine((val) => val >= 0 && val <= 90, "Duration must be 0-90 days"),
+  fever_present: z.boolean(),
+  resp_rate: numberSchema.refine((val) => val >= 10 && val <= 120, "Respiratory rate must be 10-120"),
+  oxygen_sat: numberSchema.refine((val) => val >= 70 && val <= 100, "Oxygen saturation must be 70-100%"),
+  retractions: z.boolean(),
+  cyanosis: z.boolean(),
+  
+  // X-ray acquisition
+  xray_view: z.enum(['PA', 'AP', 'Lateral', 'Other']),
+  xray_quality: z.enum(['Good', 'Adequate', 'Poor']),
+  xray_image_id: z.string().min(1).max(100),
+  xray_image_url: z.string().min(1).max(500),
+  xray_time: z.string(), // datetime string
+  
+  // AI triage
+  ai_findings: z.array(z.string()),
+  ai_confidence: numberSchema.refine((val) => val >= 0 && val <= 1, "AI confidence must be 0-1"),
+  ai_urgency: z.enum(['Routine', 'Priority', 'Emergency']),
+  ai_recommendation: z.string().max(1000).optional(),
+  
+  // Referral
+  referral_required: z.boolean(),
+  referral_urgency: z.enum(['Routine', 'Urgent', 'Emergency']).optional(),
+  referral_reason: z.string().max(500).optional(),
+  referral_facility: z.string().max(200).optional(),
+  transport_arranged: z.boolean().optional(),
+  
+  // Admission
+  admission_date: z.string(),
+  admission_time: z.string(),
+  admitting_diagnosis: z.string().min(1).max(200),
+  admission_type: z.enum(['Emergency', 'Urgent', 'Elective', 'Transfer']),
+  referred_from: z.string().max(200).optional(),
+  
+  // Treatment
+  treatment_given: z.array(z.string()),
+  treatment_response: z.enum(['Full Recovery', 'Partial Improvement', 'No Change', 'Deterioration']),
+  clinical_progress: z.string().max(1000).optional(),
+  complications_noted: z.string().max(500).optional(),
+  treatment_duration_hours: numberSchema.refine((val) => val >= 0 && val <= 8760, "Duration must be 0-8760 hours"),
+  
+  // Discharge
+  discharge_date: z.string(),
+  discharge_time: z.string(),
+  discharge_condition: z.enum(['Recovered', 'Improved', 'Stable', 'Unchanged', 'AMA']),
+  discharge_diagnosis: z.string().min(1).max(200),
+  summary_of_stay: z.string().min(1).max(2000),
+  procedures_performed: z.string().max(1000).optional(),
+  clinical_outcome: z.enum(['Discharged to home', 'Transferred to another facility', 'Deceased', 'AMA']),
+  
+  // Discharge medications
+  discharge_meds_list: z.string().min(1).max(2000),
+  medication_count: numberSchema.refine((val) => val >= 0 && val <= 20, "Must be 0-20 medications"),
+  medications_verified: z.boolean(),
+  
+  // Patient education
+  education_provided: z.boolean(),
+  warning_signs_discussed: z.boolean(),
+  red_flags_explained: z.boolean(),
+  care_instructions_given: z.boolean(),
+  caregiver_questions_answered: z.boolean(),
+  
+  // Follow-up
+  follow_up_required: z.boolean(),
+  follow_up_date: z.string().optional(),
+  follow_up_facility: z.string().max(200).optional(),
+  follow_up_provider: z.string().max(100).optional(),
+  follow_up_reason: z.string().max(500).optional(),
+  
+  // Discharge checklist
+  checklist_vitals_stable: z.boolean(),
+  checklist_meds_reconciled: z.boolean(),
+  checklist_documents_complete: z.boolean(),
+  checklist_education_complete: z.boolean(),
+  checklist_follow_up_scheduled: z.boolean(),
+  
+  // Discharge disposition
+  discharge_disposition: z.enum(['Home', 'Transfer to hospital', 'Transfer to LTC', 'Against medical advice', 'Deceased']),
+  discharge_destination: z.string().max(200).optional(),
+  transport_mode: z.enum(['Walking', 'Private vehicle', 'Ambulance', 'Public transport', 'Taxi']).optional(),
+  escort_required: z.boolean(),
+  accompanying_person: z.string().max(100).optional(),
+  
+  // Sign-off
+  caregiver_signoff: z.boolean(),
+  caregiver_name: z.string().min(1).max(100),
+  caregiver_relationship: z.enum(['Mother', 'Father', 'Grandmother', 'Grandfather', 'Guardian', 'Other']),
+  signoff_datetime: z.string(),
+  nurse_name: z.string().min(1).max(100),
+  nurse_signature: z.boolean(),
+  discharge_complete: z.boolean(),
 };
 
 // Helper to get schema for a specific field

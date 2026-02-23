@@ -176,9 +176,12 @@ class PatientController extends Controller
                 'createdBy' => $request->user()->id,
             ];
 
-            $couchResult = $this->couchDbService->createDocument($couchDoc);
+            $couchResult = $this->couchDbService->saveDocument($couchDoc);
 
-            if ($couchResult['success']) {
+            // CouchDB returns {ok: true, id: "...", rev: "..."} on success
+            $couchSuccess = isset($couchResult['ok']) && $couchResult['ok'] === true;
+
+            if ($couchSuccess) {
                 // Update patient with CouchDB ID
                 $patient->update([
                     'couch_id' => $couchResult['id'],
@@ -207,7 +210,8 @@ class PatientController extends Controller
                     'id' => $session->id,
                     'couch_id' => $session->couch_id,
                 ],
-                'redirect' => route('gp.sessions.show', $session->couch_id ?? $session->id),
+                // Role-based redirect
+                'redirect' => $this->getRoleBasedRedirect($request->user(), $session->couch_id ?? $session->id),
             ], 201);
 
         } catch (\Exception $e) {
@@ -328,21 +332,43 @@ class PatientController extends Controller
             'createdBy' => $userId,
         ];
 
-        $couchResult = $this->couchDbService->createDocument($sessionDoc);
+        $couchResult = $this->couchDbService->saveDocument($sessionDoc);
+
+        // CouchDB returns {ok: true, id: "...", rev: "..."} on success
+        $couchSuccess = isset($couchResult['ok']) && $couchResult['ok'] === true;
 
         // Create session in MySQL
         $session = ClinicalSession::create([
-            'couch_id' => $couchResult['success'] ? $couchResult['id'] : null,
+            'couch_id' => $couchSuccess ? $couchResult['id'] : null,
+            'session_uuid' => $couchSuccess ? $couchResult['id'] : null,
             'patient_cpt' => $patient->cpt,
             'state' => 'in_review',
             'triage_level' => 'green',
             'provider_id' => $userId,
             'session_date' => now(),
-            'raw_document' => $couchResult['success'] 
+            'raw_document' => $couchSuccess 
                 ? array_merge($sessionDoc, ['_id' => $couchResult['id'], '_rev' => $couchResult['rev']]) 
                 : $sessionDoc,
         ]);
 
         return $session;
+    }
+
+    /**
+     * Get role-based redirect URL after patient registration.
+     */
+    protected function getRoleBasedRedirect($user, string $sessionId): string
+    {
+        if (!$user) {
+            return route('gp.dashboard');
+        }
+
+        // Check if user has radiologist role
+        if ($user->hasRole('radiologist')) {
+            return route('radiology.dashboard');
+        }
+
+        // Default to GP dashboard
+        return route('gp.sessions.show', $sessionId);
     }
 }

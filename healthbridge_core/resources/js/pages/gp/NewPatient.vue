@@ -24,7 +24,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
     {
         title: 'New Patient',
-        href: '/gp/patients/new',
+        href: '/patients/new',
     },
 ];
 
@@ -94,7 +94,7 @@ const submitForm = async () => {
     successMessage.value = '';
     
     try {
-        const response = await fetch('/gp/patients', {
+        const response = await fetch('/patients', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

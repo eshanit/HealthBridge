@@ -13,35 +13,42 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::middleware(['auth', 'verified', 'role:radiologist|admin'])->prefix('radiology')->name('radiology.')->group(function () {
+// All radiology routes - require authentication
+// Image routes don't require radiologist role (for viewers)
+Route::middleware(['auth', 'verified'])->prefix('radiology')->name('radiology.')->group(function () {
     
-    // Dashboard
-    Route::get('/dashboard', [RadiologyController::class, 'index'])->name('dashboard');
+    // Dashboard - requires radiologist role
+    Route::get('/dashboard', [RadiologyController::class, 'index'])->name('dashboard')->middleware('role:radiologist|admin');
     
-    // Worklist
-    Route::get('/worklist', [RadiologyController::class, 'worklist'])->name('worklist');
-    Route::get('/worklist/stats', [RadiologyController::class, 'worklistStats'])->name('worklist.stats');
+    // New Study Page - requires radiologist role
+    Route::get('/studies/new', [RadiologyController::class, 'newStudy'])->name('studies.new')->middleware('role:radiologist|admin');
     
-    // Studies
-    Route::post('/studies', [RadiologyController::class, 'createStudy'])->name('studies.create');
-    Route::get('/studies/{studyId}', [RadiologyController::class, 'showStudy'])->name('studies.show');
-    Route::post('/studies/{studyId}/accept', [RadiologyController::class, 'acceptStudy'])->name('studies.accept');
-    Route::post('/studies/{studyId}/assign', [RadiologyController::class, 'assignStudy'])->name('studies.assign');
-    Route::patch('/studies/{studyId}/status', [RadiologyController::class, 'updateStudyStatus'])->name('studies.status');
+    // Worklist - requires radiologist role
+    Route::get('/worklist', [RadiologyController::class, 'worklist'])->name('worklist')->middleware('role:radiologist|admin');
+    Route::get('/worklist/stats', [RadiologyController::class, 'worklistStats'])->name('worklist.stats')->middleware('role:radiologist|admin');
     
-    // Additional routes for Phase 2B+ will be added here:
-    // - Reports management
-    // - Consultations
-    // - Procedures
-    // - Treatment plans
+    // Image routes - don't require radiologist role (any authenticated user can view)
+    // Put these BEFORE the generic {studyId} route to ensure they match first
+    Route::get('/studies/{studyId}/image', [RadiologyController::class, 'getImage'])->name('studies.image');
+    Route::get('/studies/{studyId}/preview', [RadiologyController::class, 'getPreview'])->name('studies.preview');
     
-    // Reports (Phase 2B)
-    Route::get('/reports', [RadiologyController::class, 'listReports'])->name('reports.index');
-    Route::get('/reports/templates', [RadiologyController::class, 'getReportTemplates'])->name('reports.templates');
-    Route::get('/reports/{reportId}', [RadiologyController::class, 'showReport'])->name('reports.show');
-    Route::post('/studies/{studyId}/reports', [RadiologyController::class, 'createReport'])->name('reports.create');
-    Route::patch('/reports/{reportId}', [RadiologyController::class, 'updateReport'])->name('reports.update');
-    Route::post('/reports/{reportId}/sign', [RadiologyController::class, 'signReport'])->name('reports.sign');
-    Route::post('/reports/{reportId}/amend', [RadiologyController::class, 'amendReport'])->name('reports.amend');
-    Route::post('/reports/{reportId}/auto-save', [RadiologyController::class, 'autoSaveReport'])->name('reports.auto-save');
+    // Studies CRUD - requires radiologist role
+    Route::post('/studies', [RadiologyController::class, 'createStudy'])->name('studies.create')->middleware('role:radiologist|admin');
+    Route::post('/studies/{studyId}/upload-images', [RadiologyController::class, 'uploadImages'])->name('studies.upload')->middleware('role:radiologist|admin');
+    Route::post('/studies/{studyId}/accept', [RadiologyController::class, 'acceptStudy'])->name('studies.accept')->middleware('role:radiologist|admin');
+    Route::post('/studies/{studyId}/assign', [RadiologyController::class, 'assignStudy'])->name('studies.assign')->middleware('role:radiologist|admin');
+    Route::patch('/studies/{studyId}/status', [RadiologyController::class, 'updateStudyStatus'])->name('studies.status')->middleware('role:radiologist|admin');
+    
+    // Reports - requires radiologist role
+    Route::get('/reports', [RadiologyController::class, 'listReports'])->name('reports.index')->middleware('role:radiologist|admin');
+    Route::get('/reports/templates', [RadiologyController::class, 'getReportTemplates'])->name('reports.templates')->middleware('role:radiologist|admin');
+    Route::get('/reports/{reportId}', [RadiologyController::class, 'showReport'])->name('reports.show')->middleware('role:radiologist|admin');
+    Route::post('/studies/{studyId}/reports', [RadiologyController::class, 'createReport'])->name('reports.create')->middleware('role:radiologist|admin');
+    Route::patch('/reports/{reportId}', [RadiologyController::class, 'updateReport'])->name('reports.update')->middleware('role:radiologist|admin');
+    Route::post('/reports/{reportId}/sign', [RadiologyController::class, 'signReport'])->name('reports.sign')->middleware('role:radiologist|admin');
+    Route::post('/reports/{reportId}/amend', [RadiologyController::class, 'amendReport'])->name('reports.amend')->middleware('role:radiologist|admin');
+    Route::post('/reports/{reportId}/auto-save', [RadiologyController::class, 'autoSaveReport'])->name('reports.auto-save')->middleware('role:radiologist|admin');
+    
+    // Generic study show - requires radiologist role - MUST BE LAST
+    Route::get('/studies/{studyId}', [RadiologyController::class, 'showStudy'])->name('studies.show')->middleware('role:radiologist|admin');
 });

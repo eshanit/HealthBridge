@@ -27,5 +27,6 @@ Route::middleware(['auth', 'ai.guard', 'throttle:ai'])->prefix('api/ai')->group(
 });
 
 require __DIR__.'/settings.php';
+require __DIR__.'/patients.php';
 require __DIR__.'/gp.php';
 require __DIR__.'/radiology.php';

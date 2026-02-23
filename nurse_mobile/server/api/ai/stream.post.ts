@@ -1131,16 +1131,25 @@ export default defineEventHandler(async (event) => {
 
     // Fetch from Ollama with native fetch for true streaming
     console.log(`[AI Stream] Fetching from Ollama: ${OLLAMA_BASE_URL}/api/generate`);
-    const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(ollamaConfig)
-    });
+    console.log(`[AI Stream] Full request body:`, JSON.stringify(ollamaConfig, null, 2));
+    
+    let response: Response;
+    try {
+      response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ollamaConfig)
+      });
+    } catch (fetchError) {
+      console.error(`[AI Stream] Fetch error:`, fetchError);
+      throw new Error(`Failed to connect to Ollama: ${fetchError}`);
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`[AI Stream] Ollama error: ${response.status} ${errorText}`);
-      throw new Error(`Ollama error: ${response.status}`);
+      console.error(`[AI Stream] Request that caused error:`, JSON.stringify(ollamaConfig, null, 2));
+      throw new Error(`Ollama error: ${response.status} - ${errorText}`);
     }
 
     if (!response.body) {

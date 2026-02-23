@@ -68,6 +68,19 @@ const availableSchemas = ref<SchemaManifest[]>([
     }
   },
   {
+    id: 'peds_respiratory_xray_triage',
+    name: 'Pediatric Respiratory Assessment with X-ray Triage',
+    description: 'Complete IMCI-based assessment plus X-ray acquisition, AI triage, referral guidance, treatment course, and discharge workflow',
+    version: '2.0.0',
+    status: 'active',
+    priority: 'high',
+    metadata: {
+      estimatedCompletionMinutes: 25,
+      riskLevel: 'high',
+      requiresSupervisorReview: true
+    }
+  },
+  {
     id: 'peds_diarrhea',
     name: 'Pediatric Diarrhea Assessment',
     description: 'WHO IMCI protocol for children with diarrhea',

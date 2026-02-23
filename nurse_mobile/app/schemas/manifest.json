@@ -92,6 +92,42 @@
       "localizations": []
     },
     {
+      "id": "peds_respiratory_xray_triage",
+      "name": "Pediatric Respiratory Assessment with X-ray Triage",
+      "description": "Complete IMCI-based assessment plus X-ray acquisition, AI triage, referral guidance, treatment course, and discharge workflow",
+      "version": "2.0.0",
+      "protocol": "WHO_IMCI + XRAY_TRIAGE + DISCHARGE",
+      "protocolVersion": "2014",
+      "applicableAgeRange": {
+        "minMonths": 2,
+        "maxMonths": 59
+      },
+      "status": "active",
+      "priority": "high",
+      "downloadUrl": "/schemas/peds_respiratory_xray.json",
+      "sha256": null,
+      "sizeBytes": 20759,
+      "compatibility": {
+        "minAppVersion": "1.0.0",
+        "maxAppVersion": "2.0.0"
+      },
+      "metadata": {
+        "created": "2025-01-01T00:00:00Z",
+        "lastUpdated": "2026-02-22T14:40:00Z",
+        "validityPeriod": {
+          "start": "2025-01-01",
+          "end": "2026-12-31"
+        },
+        "whoReference": "IMCI Chart 1: Cough or Difficulty Breathing + X-ray Triage Protocol",
+        "trainingRequired": true,
+        "estimatedCompletionMinutes": 25,
+        "riskLevel": "high",
+        "requiresSupervisorReview": true
+      },
+      "dependencies": ["peds_respiratory"],
+      "localizations": []
+    },
+    {
       "id": "peds_diarrhea",
       "name": "Pediatric Diarrhea Assessment",
       "description": "WHO IMCI protocol for children with diarrhea",
@@ -194,6 +230,42 @@
         "trainingRequired": false,
         "estimatedCompletionMinutes": 3,
         "riskLevel": "low",
+        "requiresSupervisorReview": false
+      },
+      "dependencies": [],
+      "localizations": []
+    },
+    {
+      "id": "radiology_study",
+      "name": "Radiology Study Order",
+      "description": "CouchDB document schema for radiology study orders",
+      "version": "1.0.0",
+      "protocol": "HL7_FHIR",
+      "protocolVersion": "2024",
+      "applicableAgeRange": {
+        "minMonths": 0,
+        "maxMonths": null
+      },
+      "status": "active",
+      "priority": "high",
+      "downloadUrl": "/schemas/radiology.json",
+      "sha256": null,
+      "sizeBytes": 2048,
+      "compatibility": {
+        "minAppVersion": "1.0.0",
+        "maxAppVersion": "2.0.0"
+      },
+      "metadata": {
+        "created": "2026-02-22T00:00:00Z",
+        "lastUpdated": "2026-02-22T00:00:00Z",
+        "validityPeriod": {
+          "start": "2026-02-22",
+          "end": null
+        },
+        "whoReference": null,
+        "trainingRequired": false,
+        "estimatedCompletionMinutes": 2,
+        "riskLevel": "medium",
         "requiresSupervisorReview": false
       },
       "dependencies": [],
