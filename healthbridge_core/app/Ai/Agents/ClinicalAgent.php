@@ -21,10 +21,10 @@ use Laravel\Ai\Messages\Message;
 use Stringable;
 
 /**
- * Base Clinical Agent for HealthBridge
+ * Base Clinical Agent for UtanoBridge
  *
  * This abstract class provides the foundation for all clinical AI agents
- * in the HealthBridge system. It integrates with the Laravel AI SDK while
+ * in the UtanoBridge system. It integrates with the Laravel AI SDK while
  * preserving the clinical-specific services (PromptBuilder, ContextBuilder,
  * OutputValidator) that provide PHI sanitization and FHIR-compliant output.
  *

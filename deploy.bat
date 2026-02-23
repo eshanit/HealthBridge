@@ -1,6 +1,6 @@
 @echo off
 REM =============================================================================
-REM HealthBridge Platform - Windows Deployment Script
+REM UtanoBridge Platform - Windows Deployment Script
 REM Single-command deployment for the entire ecosystem
 REM =============================================================================
 
@@ -17,7 +17,7 @@ set "NC=!ESC![0m"
 REM Banner
 echo.
 echo !BLUE!======================================================================!NC!
-echo !BLUE!          HealthBridge Platform Deployment Script                   !NC!
+echo !BLUE!          UtanoBridge Platform Deployment Script                   !NC!
 echo !BLUE!               Single-Command Deploy (Windows)                       !NC!
 echo !BLUE!======================================================================!NC!
 echo.
@@ -115,7 +115,7 @@ docker compose exec -T healthbridge php artisan couchdb:setup --force 2>nul
 
 echo.
 echo !GREEN!======================================================================!NC!
-echo !GREEN!              HealthBridge Deployment Complete!                      !NC!
+echo !GREEN!              UtanoBridge Deployment Complete!                      !NC!
 echo !GREEN!======================================================================!NC!
 echo.
 echo !BLUE!Access Points:!NC!

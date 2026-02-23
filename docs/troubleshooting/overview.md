@@ -1,4 +1,4 @@
-# HealthBridge Troubleshooting Guide
+# UtanoBridge Troubleshooting Guide
 
 **Version:** 1.0  
 **Last Updated:** February 2026  
@@ -20,7 +20,7 @@
 
 ## 1. Overview
 
-This guide provides solutions to common issues encountered when operating HealthBridge. For deployment issues, see the [Deployment Guide](../deployment/docker-deployment.md).
+This guide provides solutions to common issues encountered when operating UtanoBridge. For deployment issues, see the [Deployment Guide](../deployment/docker-deployment.md).
 
 ### Diagnostic Commands
 

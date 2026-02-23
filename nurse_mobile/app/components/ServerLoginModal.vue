@@ -4,7 +4,7 @@
       <div class="modal-header">
         <h2>Server Authentication Required</h2>
         <p class="modal-description">
-          To sync data with the central server, please enter your HealthBridge credentials.
+          To sync data with the central server, please enter your UtanoBridge credentials.
         </p>
       </div>
 

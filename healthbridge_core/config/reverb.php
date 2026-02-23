@@ -4,7 +4,7 @@
  * Laravel Reverb Configuration
  * 
  * This file configures the Reverb WebSocket server for real-time
- * broadcasting in the HealthBridge application.
+ * broadcasting in the UtanoBridge application.
  * 
  * @see https://laravel.com/docs/reverb
  */

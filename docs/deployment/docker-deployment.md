@@ -1,4 +1,4 @@
-# HealthBridge Deployment Guide
+# UtanoBridge Deployment Guide
 
 **Version:** 1.0  
 **Last Updated:** February 2026  
@@ -20,7 +20,7 @@
 
 ## 1. Overview
 
-HealthBridge uses Docker for containerized deployment with the following services:
+UtanoBridge uses Docker for containerized deployment with the following services:
 
 | Service | Container | Purpose |
 |---------|-----------|---------|
@@ -333,7 +333,7 @@ sudo supervisorctl status
 
 ```env
 # Application
-APP_NAME=HealthBridge
+APP_NAME=UtanoBridge
 APP_ENV=production
 APP_KEY=
 APP_DEBUG=false
@@ -387,7 +387,7 @@ MAIL_FROM_NAME="${APP_NAME}"
 
 ```env
 # Application
-NUXT_PUBLIC_APP_NAME=HealthBridge Nurse
+NUXT_PUBLIC_APP_NAME=UtanoBridge Nurse
 NUXT_PUBLIC_APP_URL=https://nurse.healthbridge.example.com
 
 # API Configuration

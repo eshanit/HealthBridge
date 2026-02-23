@@ -91,7 +91,7 @@ const sessionId = computed(() => route.params.sessionId as string);
 // ============================================
 
 useHead({
-  title: 'Treatment - HealthBridge',
+  title: 'Treatment - UtanoBridge',
   meta: [
     { name: 'description', content: 'Record treatment interventions for the patient' }
   ]

@@ -38,7 +38,7 @@ const sessionId = computed(() => route.params.sessionId as string);
 // ============================================
 
 useHead({
-  title: `Session ${sessionId.value.slice(7, 11)} - HealthBridge`,
+  title: `Session ${sessionId.value.slice(7, 11)} - UtanoBridge`,
   meta: [
     { name: 'description', content: 'Clinical session detail view' }
   ]

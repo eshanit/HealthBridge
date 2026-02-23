@@ -1,5 +1,5 @@
 # =============================================================================
-# HealthBridge Platform - Makefile
+# UtanoBridge Platform - Makefile
 # Convenient commands for Docker deployment
 # =============================================================================
 
@@ -7,7 +7,7 @@
 
 # Default target
 help:
-	@echo "HealthBridge Platform - Deployment Commands"
+	@echo "UtanoBridge Platform - Deployment Commands"
 	@echo ""
 	@echo "Usage: make [command]"
 	@echo ""

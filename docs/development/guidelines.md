@@ -1,4 +1,4 @@
-# HealthBridge Development Guidelines
+# UtanoBridge Development Guidelines
 
 **Version:** 1.0  
 **Last Updated:** February 2026  

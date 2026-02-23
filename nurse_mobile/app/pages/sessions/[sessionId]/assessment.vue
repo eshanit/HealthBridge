@@ -38,7 +38,7 @@ const sessionId = computed(() => route.params.sessionId as string);
 // ============================================
 
 useHead({
-  title: 'Select Assessment - HealthBridge',
+  title: 'Select Assessment - UtanoBridge',
   meta: [
     { name: 'description', content: 'Select an assessment form for the patient' }
   ]

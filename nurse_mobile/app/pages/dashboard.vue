@@ -471,7 +471,7 @@ function getStateColor(state: DashboardState): string {
     <!-- Header -->
     <header class="flex items-center justify-between mb-6">
       <div>
-        <h1 class="text-2xl font-bold text-white">HealthBridge</h1>
+        <h1 class="text-2xl font-bold text-white">UtanoBridge</h1>
         <p class="text-gray-400 text-sm">Patient-First Clinical Workflow</p>
       </div>
       

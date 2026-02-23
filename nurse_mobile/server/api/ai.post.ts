@@ -301,7 +301,7 @@ export default defineEventHandler(async (event): Promise<AIResponse> => {
 // ============================================================================
 
 function buildStructuredPrompt(body: AIRequest): string {
-  const systemPrompt = `You are MedGemma, a clinical explainability assistant for HealthBridge.
+  const systemPrompt = `You are MedGemma, a clinical explainability assistant for UtanoBridge.
 You help nurses understand WHY clinical decisions were made following WHO IMCI guidelines.
 
 ## YOUR ROLE

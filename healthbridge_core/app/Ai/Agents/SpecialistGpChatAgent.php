@@ -10,7 +10,7 @@ use Laravel\Ai\Enums\Lab;
 use Stringable;
 
 /**
- * Specialist GP Chat Agent for HealthBridge
+ * Specialist GP Chat Agent for UtanoBridge
  *
  * This agent provides interactive chat functionality with a professional
  * Specialist GP persona. It uses the RemembersConversations trait to

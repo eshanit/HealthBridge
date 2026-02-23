@@ -1,4 +1,4 @@
-# HealthBridge Clinical Workflow Architecture
+# UtanoBridge Clinical Workflow Architecture
 
 **Version:** 1.0  
 **Last Updated:** February 2026  
@@ -20,7 +20,7 @@
 
 ## 1. Overview
 
-HealthBridge clinical workflow is designed around **session-based patient encounters** that progress through defined stages from registration to discharge. The system supports WHO IMCI (Integrated Management of Childhood Illness) protocols for pediatric patients.
+UtanoBridge clinical workflow is designed around **session-based patient encounters** that progress through defined stages from registration to discharge. The system supports WHO IMCI (Integrated Management of Childhood Illness) protocols for pediatric patients.
 
 ### Core Principles
 
@@ -290,7 +290,7 @@ class WorkflowStateMachine
 
 ### CPT (Clinical Patient Token) Format
 
-HealthBridge uses a **4-character patient identifier** designed for rapid manual entry in busy clinical environments.
+UtanoBridge uses a **4-character patient identifier** designed for rapid manual entry in busy clinical environments.
 
 **Format Specification:**
 - **Length**: Exactly 4 characters

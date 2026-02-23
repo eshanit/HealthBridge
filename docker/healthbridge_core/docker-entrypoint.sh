@@ -1,12 +1,12 @@
 #!/bin/bash
 # =============================================================================
-# HealthBridge Core - Docker Entrypoint Script
+# UtanoBridge Core - Docker Entrypoint Script
 # Handles initialization, migrations, and service startup
 # =============================================================================
 
 set -e
 
-echo "🚀 Starting HealthBridge Core..."
+echo "🚀 Starting UtanoBridge Core..."
 
 # Wait for MySQL to be ready
 echo "⏳ Waiting for MySQL..."

@@ -1,5 +1,5 @@
 # =============================================================================
-# HealthBridge Nurse Mobile - Nuxt.js Frontend Dockerfile
+# UtanoBridge Nurse Mobile - Nuxt.js Frontend Dockerfile
 # Production-ready multi-stage build for Nuxt 4 application
 # =============================================================================
 

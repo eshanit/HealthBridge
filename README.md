@@ -1,4 +1,4 @@
-# HealthBridge Healthcare System Platform
+# UtanoBridge Healthcare System Platform
 
 <p align="center">
   <img src="https://img.shields.io/badge/Laravel-12.x-FF2D20?style=for-the-badge&logo=laravel" alt="Laravel">
@@ -7,7 +7,7 @@
   <img src="https://img.shields.io/badge/Ollama-Latest-4B32C3?style=for-the-badge" alt="Ollama">
 </p>
 
-> **HealthBridge** is a comprehensive healthcare delivery platform designed for resource-limited settings. It combines offline-first mobile clinical documentation with specialist collaboration tools and AI-powered clinical decision support.
+> **UtanoBridge** is a comprehensive healthcare delivery platform designed for resource-limited settings. It combines offline-first mobile clinical documentation with specialist collaboration tools and AI-powered clinical decision support.
 
 ## Table of Contents
 
@@ -171,7 +171,7 @@ Local AI/ML inference server for clinical decision support.
 
 ## Docker Deployment (Recommended)
 
-> **🚀 Quick Start**: Deploy the entire HealthBridge platform with a single command using Docker Compose. This is the recommended method for production deployments and client installations.
+> **🚀 Quick Start**: Deploy the entire UtanoBridge platform with a single command using Docker Compose. This is the recommended method for production deployments and client installations.
 
 ### Why Docker?
 
@@ -195,7 +195,7 @@ Local AI/ML inference server for clinical decision support.
 
 ```bash
 git clone <repository-url>
-cd HealthBridge
+cd UtanoBridge
 ```
 
 #### 2. Configure Environment
@@ -255,7 +255,7 @@ After deployment, access the application at:
         │                       │                       │
         ▼                       ▼                       ▼
 ┌───────────────┐     ┌───────────────┐     ┌───────────────┐
-│  Nurse Mobile │     │  HealthBridge │     │    Ollama     │
+│  Nurse Mobile │     │  UtanoBridge │     │    Ollama     │
 │   (Nuxt.js)   │     │   (Laravel)   │     │   (AI/LLM)    │
 │   Port 3000   │     │  Port 8000    │     │  Port 11434   │
 └───────┬───────┘     └───────┬───────┘     └───────────────┘
@@ -376,7 +376,7 @@ For advanced configuration options, SSL/HTTPS setup, and production tuning, see:
 ##### 1. Clone and Navigate
 
 ```bash
-cd c:/Users/Admin/Documents/Projects/Tinashe/HealthBridge
+cd c:/Users/Admin/Documents/Projects/Tinashe/UtanoBridge
 cd nurse_mobile
 ```
 
@@ -401,7 +401,7 @@ Edit `.env` with your configuration:
 # APPLICATION
 # ============================================================================
 
-NUXT_PUBLIC_APP_NAME=HealthBridge
+NUXT_PUBLIC_APP_NAME=UtanoBridge
 NUXT_PUBLIC_APP_URL=http://localhost:3000
 
 # ============================================================================
@@ -550,7 +550,7 @@ npx capacitor run ios
 ##### 1. Navigate to Project
 
 ```bash
-cd c:/Users/Admin/Documents/Projects/Tinashe/HealthBridge
+cd c:/Users/Admin/Documents/Projects/Tinashe/UtanoBridge
 cd healthbridge_core
 ```
 
@@ -573,7 +573,7 @@ Edit `.env` with your database and application settings:
 # APPLICATION
 # ============================================================================
 
-APP_NAME=HealthBridge
+APP_NAME=UtanoBridge
 APP_ENV=local
 APP_KEY=
 APP_DEBUG=true
@@ -797,7 +797,7 @@ php artisan test --filter=PatientTest
 
 #### Purpose and Role
 
-Laravel Reverb provides WebSocket connectivity for real-time features in HealthBridge:
+Laravel Reverb provides WebSocket connectivity for real-time features in UtanoBridge:
 
 - **Real-time Notifications**: New referrals, session updates
 - **Presence Channels**: Online user tracking in GP dashboard
@@ -1380,7 +1380,7 @@ npm run dev
 ### Project Structure
 
 ```
-HealthBridge/
+UtanoBridge/
 ├── nurse_mobile/              # Frontliner Mobile App
 │   ├── app/                   # Nuxt app source
 │   │   ├── components/        # Vue components
@@ -1422,7 +1422,7 @@ cd healthbridge_core
 php artisan db:seed
 ```
 
-This creates test users for both the Nurse Mobile app and the HealthBridge Core specialist portal.
+This creates test users for both the Nurse Mobile app and the UtanoBridge Core specialist portal.
 
 #### Nurse Mobile App Testing
 
@@ -1443,7 +1443,7 @@ In the Nurse Mobile app, click **"Connect to Server"** and use the following cre
 | **Username** | `nurse@healthbridge.org` |
 | **Password** | `password` |
 
-#### HealthBridge Core Specialist Portal
+#### UtanoBridge Core Specialist Portal
 
 The following test accounts are available for the specialist dashboard at `http://localhost/admin`:
 
@@ -1636,7 +1636,7 @@ test: Add integration tests for sync
 
 ## License
 
-This project is proprietary software for the HealthBridge healthcare system.
+This project is proprietary software for the UtanoBridge healthcare system.
 
 ---
 

@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * OllamaClient - Custom Ollama API Client for HealthBridge
+ * OllamaClient - Custom Ollama API Client for UtanoBridge
  *
  * This class provides a backward-compatible interface for Ollama API interactions
  * while integrating with the Laravel AI SDK. It preserves clinical-specific features

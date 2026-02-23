@@ -13,7 +13,7 @@ import type { ClinicalSession } from '~/services/sessionEngine';
 // ============================================
 
 useHead({
-  title: 'Patient Queue - HealthBridge',
+  title: 'Patient Queue - UtanoBridge',
   meta: [
     { name: 'description', content: 'Clinical session queue - view and manage patient sessions by triage priority' }
   ]

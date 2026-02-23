@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "manifestVersion": "1.0.0",
-  "appName": "HealthBridge Companion - Frontliner",
+  "appName": "UtanoBridge Companion - Frontliner",
   "appVersion": "1.0.0",
   "lastUpdated": "2024-03-15T10:00:00Z",
   "clinicalProtocol": "WHO_IMCI",

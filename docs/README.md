@@ -1,6 +1,6 @@
-# HealthBridge Documentation
+# UtanoBridge Documentation
 
-Welcome to the HealthBridge documentation. This folder contains comprehensive technical documentation organized to help developers understand the application's architecture and logic before reviewing the codebase.
+Welcome to the UtanoBridge documentation. This folder contains comprehensive technical documentation organized to help developers understand the application's architecture and logic before reviewing the codebase.
 
 ## Documentation Structure
 
@@ -50,12 +50,12 @@ docs/
 
 ## Architecture Summary
 
-HealthBridge is a **two-tier clinical system** designed for offline-first healthcare delivery:
+UtanoBridge is a **two-tier clinical system** designed for offline-first healthcare delivery:
 
 | Component | Technology | Purpose |
 |-----------|------------|---------|
 | **Nurse Mobile** | Nuxt 4 + PouchDB | Frontline data collection (offline-capable) |
-| **HealthBridge Core** | Laravel 11 + MySQL | Governance, reporting, AI integration |
+| **UtanoBridge Core** | Laravel 11 + MySQL | Governance, reporting, AI integration |
 | **CouchDB** | Apache CouchDB | Sync layer between mobile and core |
 | **AI Services** | Ollama + MedGemma | Clinical decision support |
 
@@ -69,7 +69,7 @@ Mobile App (PouchDB) ←→ CouchDB ←→ Laravel (MySQL)
 
 ## Patient Identification
 
-HealthBridge uses **Clinical Patient Tokens (CPT)** - 4-character alphanumeric identifiers generated from patient demographics using SHA-256 hashing. This enables:
+UtanoBridge uses **Clinical Patient Tokens (CPT)** - 4-character alphanumeric identifiers generated from patient demographics using SHA-256 hashing. This enables:
 
 - Offline patient identification
 - Privacy-preserving record linkage

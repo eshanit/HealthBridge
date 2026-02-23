@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
-    <Description>HealthBridge CouchDB to MySQL Sync Worker - Continuously syncs data from CouchDB to MySQL for the HealthBridge clinical platform.</Description>
+    <Description>UtanoBridge CouchDB to MySQL Sync Worker - Continuously syncs data from CouchDB to MySQL for the UtanoBridge clinical platform.</Description>
   </RegistrationInfo>
   <Triggers>
     <BootTrigger>

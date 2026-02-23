@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# HealthBridge Platform - Deployment Script
+# UtanoBridge Platform - Deployment Script
 # Single-command deployment for the entire ecosystem
 # =============================================================================
 
@@ -22,7 +22,7 @@ error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 # Banner
 echo -e "${BLUE}"
 echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║           HealthBridge Platform Deployment Script              ║"
+echo "║           UtanoBridge Platform Deployment Script              ║"
 echo "║                    Single-Command Deploy                       ║"
 echo "╚════════════════════════════════════════════════════════════════╝"
 echo -e "${NC}"
@@ -173,12 +173,12 @@ wait_for_services() {
     done
     success "  Ollama is ready"
     
-    # Wait for HealthBridge
-    info "  Waiting for HealthBridge API..."
+    # Wait for UtanoBridge
+    info "  Waiting for UtanoBridge API..."
     until curl -s http://localhost/health > /dev/null 2>&1; do
         sleep 5
     done
-    success "  HealthBridge is ready"
+    success "  UtanoBridge is ready"
     
     # Wait for Nurse Mobile
     info "  Waiting for Nurse Mobile..."
@@ -218,7 +218,7 @@ pull_ai_model() {
 show_status() {
     echo ""
     echo -e "${GREEN}════════════════════════════════════════════════════════════════${NC}"
-    echo -e "${GREEN}              HealthBridge Deployment Complete!                 ${NC}"
+    echo -e "${GREEN}              UtanoBridge Deployment Complete!                 ${NC}"
     echo -e "${GREEN}════════════════════════════════════════════════════════════════${NC}"
     echo ""
     echo -e "${BLUE}Access Points:${NC}"

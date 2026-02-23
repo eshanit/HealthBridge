@@ -279,7 +279,7 @@ class ReportGeneratorService
         return [
             'report_type' => 'Discharge Summary',
             'generated_at' => now()->toIso8601String(),
-            'facility' => $options['facility'] ?? config('app.name', 'HealthBridge'),
+            'facility' => $options['facility'] ?? config('app.name', 'UtanoBridge'),
             'session' => [
                 'id' => $session->couch_id,
                 'uuid' => $session->session_uuid,
@@ -332,7 +332,7 @@ class ReportGeneratorService
         return [
             'report_type' => 'Clinical Handover (SBAR)',
             'generated_at' => now()->toIso8601String(),
-            'facility' => $options['facility'] ?? config('app.name', 'HealthBridge'),
+            'facility' => $options['facility'] ?? config('app.name', 'UtanoBridge'),
             'session_id' => $session->couch_id,
             'patient' => [
                 'cpt' => $patient?->cpt,
@@ -369,7 +369,7 @@ class ReportGeneratorService
         return [
             'report_type' => 'Referral Report',
             'generated_at' => now()->toIso8601String(),
-            'facility' => $options['facility'] ?? config('app.name', 'HealthBridge'),
+            'facility' => $options['facility'] ?? config('app.name', 'UtanoBridge'),
             'referral' => [
                 'id' => $referral->referral_uuid,
                 'status' => $referral->status,
@@ -418,7 +418,7 @@ class ReportGeneratorService
         return [
             'report_type' => 'Comprehensive Clinical Report',
             'generated_at' => now()->toIso8601String(),
-            'facility' => $options['facility'] ?? config('app.name', 'HealthBridge'),
+            'facility' => $options['facility'] ?? config('app.name', 'UtanoBridge'),
             'session' => [
                 'id' => $session->couch_id,
                 'uuid' => $session->session_uuid,

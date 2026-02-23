@@ -1,5 +1,5 @@
 -- =============================================================================
--- HealthBridge Platform - MySQL Initialization Script
+-- UtanoBridge Platform - MySQL Initialization Script
 -- Creates databases and sets up initial permissions
 -- =============================================================================
 

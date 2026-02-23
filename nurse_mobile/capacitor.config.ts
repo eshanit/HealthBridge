@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'net.healthbridge.app',
-  appName: 'HealthBridge',
+  appName: 'UtanoBridge',
   webDir: '.output/public',
   server: {
     "androidScheme": "http",

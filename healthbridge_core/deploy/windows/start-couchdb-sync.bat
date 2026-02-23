@@ -1,8 +1,8 @@
 @echo off
-REM HealthBridge CouchDB Sync Worker - Windows Service Wrapper
+REM UtanoBridge CouchDB Sync Worker - Windows Service Wrapper
 REM This script runs the CouchDB sync worker in a loop for Windows environments
 
-echo Starting HealthBridge CouchDB Sync Worker...
+echo Starting UtanoBridge CouchDB Sync Worker...
 echo Press Ctrl+C to stop
 
 :loop

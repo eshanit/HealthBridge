@@ -1,4 +1,4 @@
-# HealthBridge System Architecture Overview
+# UtanoBridge System Architecture Overview
 
 **Version:** 1.0  
 **Last Updated:** February 2026  
@@ -20,7 +20,7 @@
 
 ## 1. Executive Summary
 
-HealthBridge is a **two-tier clinical system** designed for offline-first operation in resource-limited settings. The platform provides clinical decision support, AI-assisted triage explainability, and comprehensive patient management across mobile and web interfaces.
+UtanoBridge is a **two-tier clinical system** designed for offline-first operation in resource-limited settings. The platform provides clinical decision support, AI-assisted triage explainability, and comprehensive patient management across mobile and web interfaces.
 
 ### Key Capabilities
 
@@ -128,7 +128,7 @@ HealthBridge is a **two-tier clinical system** designed for offline-first operat
 | State Management | Pinia | Application state |
 | Mobile Bridge | Capacitor | Native device access |
 
-### Web Application (HealthBridge Core)
+### Web Application (UtanoBridge Core)
 
 | Component | Technology | Purpose |
 |-----------|------------|---------|
@@ -233,4 +233,4 @@ HealthBridge is a **two-tier clinical system** designed for offline-first operat
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
-| 1.0 | Feb 2026 | HealthBridge Team | Initial consolidated documentation |
+| 1.0 | Feb 2026 | UtanoBridge Team | Initial consolidated documentation |

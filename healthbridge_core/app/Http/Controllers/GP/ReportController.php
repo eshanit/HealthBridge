@@ -77,7 +77,7 @@ class ReportController extends Controller
         $patientCpt = $request->input('patientCpt');
         
         $result = $this->reportGenerator->generateDischargePdf($sessionCouchId, [
-            'facility' => config('app.name', 'HealthBridge'),
+            'facility' => config('app.name', 'UtanoBridge'),
             'show_ai_content' => true,
             'patientCpt' => $patientCpt,
         ]);
@@ -115,7 +115,7 @@ class ReportController extends Controller
         $this->authorizeSessionAccess($sessionCouchId);
 
         $result = $this->reportGenerator->generateHandoverPdf($sessionCouchId, [
-            'facility' => config('app.name', 'HealthBridge'),
+            'facility' => config('app.name', 'UtanoBridge'),
             'handed_over_by' => $request->input('handed_over_by', auth()->user()?->name),
             'handed_over_to' => $request->input('handed_over_to'),
         ]);
@@ -152,7 +152,7 @@ class ReportController extends Controller
         $this->authorizeSessionAccess($sessionCouchId);
 
         $result = $this->reportGenerator->generateReferralPdf($sessionCouchId, [
-            'facility' => config('app.name', 'HealthBridge'),
+            'facility' => config('app.name', 'UtanoBridge'),
         ]);
 
         if (!$result['success']) {
@@ -190,7 +190,7 @@ class ReportController extends Controller
         $aiContent = $request->input('ai_content', []);
 
         $result = $this->reportGenerator->generateComprehensivePdf($sessionCouchId, $aiContent, [
-            'facility' => config('app.name', 'HealthBridge'),
+            'facility' => config('app.name', 'UtanoBridge'),
             'show_ai_content' => true,
         ]);
 
@@ -234,7 +234,7 @@ class ReportController extends Controller
         };
 
         $result = $this->reportGenerator->$method($sessionCouchId, [
-            'facility' => config('app.name', 'HealthBridge'),
+            'facility' => config('app.name', 'UtanoBridge'),
         ]);
 
         if (!$result['success']) {
@@ -272,7 +272,7 @@ class ReportController extends Controller
         };
 
         $result = $this->reportGenerator->$method($sessionCouchId, [
-            'facility' => config('app.name', 'HealthBridge'),
+            'facility' => config('app.name', 'UtanoBridge'),
         ]);
 
         if (!$result['success']) {

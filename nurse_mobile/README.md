@@ -1,4 +1,4 @@
-# HealthBridge Nurse Mobile
+# UtanoBridge Nurse Mobile
 
 A clinical, offline-first mobile application for healthcare workers.
 

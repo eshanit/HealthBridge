@@ -23,7 +23,7 @@ class CouchDbSetup extends Command
      *
      * @var string
      */
-    protected $description = 'Setup and configure CouchDB for HealthBridge';
+    protected $description = 'Setup and configure CouchDB for UtanoBridge';
 
     protected CouchDbService $couchDb;
 
@@ -33,7 +33,7 @@ class CouchDbSetup extends Command
     public function handle(CouchDbService $couchDb): int
     {
         $this->couchDb = $couchDb;
-        $this->info('Setting up CouchDB for HealthBridge...');
+        $this->info('Setting up CouchDB for UtanoBridge...');
         $this->info('Host: ' . $couchDb->getBaseUrl());
         $this->info('Database: ' . $couchDb->getDatabase());
 

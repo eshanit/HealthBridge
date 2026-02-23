@@ -1,5 +1,5 @@
 # =============================================================================
-# HealthBridge Core - Laravel Backend Dockerfile
+# UtanoBridge Core - Laravel Backend Dockerfile
 # Production-ready multi-stage build for Laravel 12 application
 # =============================================================================
 

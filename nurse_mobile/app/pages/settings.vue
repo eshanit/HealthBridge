@@ -2,7 +2,7 @@
   <div class="settings-page">
     <div class="page-header">
       <h1>Settings</h1>
-      <p>Manage your HealthBridge application settings and database health</p>
+      <p>Manage your UtanoBridge application settings and database health</p>
     </div>
 
     <div class="settings-content">

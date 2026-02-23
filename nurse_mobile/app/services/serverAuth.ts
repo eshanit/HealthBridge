@@ -1,7 +1,7 @@
 /**
  * Server Authentication Service
  * 
- * Manages authentication with the HealthBridge Core server.
+ * Manages authentication with the UtanoBridge Core server.
  * Provides Sanctum token acquisition, storage, and refresh.
  * 
  * This service bridges local PIN authentication with server-side
@@ -81,7 +81,7 @@ const _isServerAuthenticated = computed(() => {
 /**
  * Server Authentication Service
  * 
- * Provides methods for authenticating with the HealthBridge Core server
+ * Provides methods for authenticating with the UtanoBridge Core server
  * and managing Sanctum tokens.
  */
 export class ServerAuthService {

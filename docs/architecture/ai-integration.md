@@ -1,4 +1,4 @@
-# HealthBridge AI Integration Architecture
+# UtanoBridge AI Integration Architecture
 
 **Version:** 1.0  
 **Last Updated:** February 2026  
@@ -21,7 +21,7 @@
 
 ## 1. Overview
 
-HealthBridge integrates AI capabilities through a **local MedGemma model** running on Ollama. The AI system provides **read-only clinical support** - it explains, educates, and summarizes, but never diagnoses, treats, or prescribes.
+UtanoBridge integrates AI capabilities through a **local MedGemma model** running on Ollama. The AI system provides **read-only clinical support** - it explains, educates, and summarizes, but never diagnoses, treats, or prescribes.
 
 ### What AI Provides
 

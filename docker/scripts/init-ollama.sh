@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# HealthBridge - Ollama Model Initialization Script
+# UtanoBridge - Ollama Model Initialization Script
 # Pulls required AI models on first deployment
 # =============================================================================
 

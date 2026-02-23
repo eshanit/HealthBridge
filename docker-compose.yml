@@ -1,5 +1,5 @@
 # =============================================================================
-# HealthBridge Platform - Docker Compose Configuration
+# UtanoBridge Platform - Docker Compose Configuration
 # Production-ready multi-service orchestration
 # =============================================================================
 # 
@@ -116,7 +116,7 @@ services:
       - "8080"
     environment:
       # Application
-      - APP_NAME=${APP_NAME:-HealthBridge}
+      - APP_NAME=${APP_NAME:-UtanoBridge}
       - APP_ENV=${APP_ENV:-production}
       - APP_KEY=${APP_KEY}
       - APP_DEBUG=${APP_DEBUG:-false}

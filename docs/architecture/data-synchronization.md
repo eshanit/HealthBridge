@@ -1,4 +1,4 @@
-# HealthBridge Data Synchronization Architecture
+# UtanoBridge Data Synchronization Architecture
 
 **Version:** 1.0  
 **Last Updated:** February 2026  
@@ -20,7 +20,7 @@
 
 ## 1. Overview
 
-HealthBridge uses a **dual-database architecture** with CouchDB as the source of truth for clinical documents and MySQL as the operational mirror for dashboards and reporting. This design enables:
+UtanoBridge uses a **dual-database architecture** with CouchDB as the source of truth for clinical documents and MySQL as the operational mirror for dashboards and reporting. This design enables:
 
 - **Offline-First Operation**: Mobile devices can work without connectivity
 - **Near Real-Time Sync**: MySQL updated within ~4 seconds of mobile sync
@@ -51,7 +51,7 @@ HealthBridge uses a **dual-database architecture** with CouchDB as the source of
 
 ### Laravel Proxy Pattern
 
-HealthBridge uses a **Laravel proxy pattern** instead of direct CouchDB connections from the web frontend. This approach provides:
+UtanoBridge uses a **Laravel proxy pattern** instead of direct CouchDB connections from the web frontend. This approach provides:
 
 | Benefit | Description |
 |---------|-------------|

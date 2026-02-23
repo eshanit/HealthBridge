@@ -11,7 +11,7 @@ return [
     | default for AI operations when no explicit provider is provided
     | for the operation. This should be any provider defined below.
     |
-    | HealthBridge Configuration:
+    | UtanoBridge Configuration:
     | - Primary: Ollama (local, free, private - PHI stays on-premise)
     | - Failover: OpenAI (cloud, paid - for redundancy only)
     |
@@ -123,7 +123,7 @@ return [
             'driver' => 'ollama',
             'key' => env('OLLAMA_API_KEY', 'ollama'),
             'url' => env('OLLAMA_BASE_URL', 'http://localhost:11434'),
-            // HealthBridge: Default model for clinical decision support
+            // UtanoBridge: Default model for clinical decision support
             'model' => env('OLLAMA_MODEL', 'gemma3:4b'),
             // Timeout for clinical AI requests (longer for complex analysis)
             'timeout' => env('OLLAMA_TIMEOUT', 120),
@@ -132,7 +132,7 @@ return [
         'openai' => [
             'driver' => 'openai',
             'key' => env('OPENAI_API_KEY'),
-            // HealthBridge: Used as failover provider
+            // UtanoBridge: Used as failover provider
             'url' => env('OPENAI_BASE_URL'),
         ],
 

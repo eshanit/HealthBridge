@@ -341,7 +341,7 @@ export function useConsoleDiagnostics() {
         }
       }
     }
-    console.log('HealthBridge Storage:', storageItems);
+    console.log('UtanoBridge Storage:', storageItems);
   }
 
   /**

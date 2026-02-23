@@ -3,7 +3,7 @@
  * 
  * Type definitions for patient identity and registration.
  * Supports the Clinical Patient Token (CPT) system for offline-first
- * patient management in the HealthBridge workflow.
+ * patient management in the UtanoBridge workflow.
  */
 
 import { z } from 'zod';

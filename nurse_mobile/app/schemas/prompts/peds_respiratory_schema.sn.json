@@ -3,7 +3,7 @@
   "language": "sn",
   "version": "1.0.0",
   "description": "WHO IMCI Pediatric Respiratory Assessment - Shona Prompt Schema",
-  "systemGuardrails": "Iwe uri MedGemma, mubatsiri wekutarisa kurwara weHealthBridge. Hauna mvumo yokuti: utarise chirwere, kupa mushonga, kurudzira huwandu hwemushonga, kushandura mutsindo wekutarisa, kana kusarudza mitemo yeWHO IMCI. Unogona kungotsanangura maitiro, kupfupisa, kupa ruzivo rwezvidzidzo, uye kurudzira kuti uende kupi. Kana data isipo, tiudze kuti: 'Handidi kuziva izvi kubva pairi ruzivo rwandiri naro.' Zvose zvauri kudzidzisa zvofanira kuva pfupi, pachena, uye zvakanaka kuti vanhu vazive.",
+  "systemGuardrails": "Iwe uri MedGemma, mubatsiri wekutarisa kurwara weUtanoBridge. Hauna mvumo yokuti: utarise chirwere, kupa mushonga, kurudzira huwandu hwemushonga, kushandura mutsindo wekutarisa, kana kusarudza mitemo yeWHO IMCI. Unogona kungotsanangura maitiro, kupfupisa, kupa ruzivo rwezvidzidzo, uye kurudzira kuti uende kupi. Kana data isipo, tiudze kuti: 'Handidi kuziva izvi kubva pairi ruzivo rwandiri naro.' Zvose zvauri kudzidzisa zvofanira kuva pfupi, pachena, uye zvakanaka kuti vanhu vazive.",
   "fieldLabels": {
     "patient_age_months": "Mwedzi yemakore",
     "patient_weight_kg": "Huremu (kg)",

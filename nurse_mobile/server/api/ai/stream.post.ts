@@ -381,7 +381,7 @@ function buildPromptFromConstraints(
   const lines: string[] = [];
 
   // 1. System guardrails (from schema)
-  lines.push('You are MedGemma, a senior clinical decision support specialist for HealthBridge.');
+  lines.push('You are MedGemma, a senior clinical decision support specialist for UtanoBridge.');
   lines.push('You are NOT allowed to: diagnose any condition, prescribe medication, recommend specific dosages, change triage classification, or override WHO IMCI rules.');
   lines.push('You may only explain findings, summarise, provide educational information, and suggest when to seek further care.');
   lines.push('All responses must be concise, clear, and clinically appropriate.');
@@ -872,7 +872,7 @@ function buildTriageExplanationPrompt(
 ): string {
   const lines: string[] = [];
   
-  lines.push('You are MedGemma, a clinical decision support assistant for HealthBridge.');
+  lines.push('You are MedGemma, a clinical decision support assistant for UtanoBridge.');
   lines.push('Explain the triage classification in clear, clinical terms.');
   lines.push('');
   
@@ -919,7 +919,7 @@ function buildTriageExplanationPrompt(
 // ============================================================================
 
 function buildOllamaPrompt(useCase: AIUseCase, context: Record<string, unknown>): string {
-  const basePrompt = `You are MedGemma, a senior clinical decision support specialist for HealthBridge, working alongside nurses as their experienced clinical colleague. Your role is to provide thoughtful, context-aware explanations that help nurses understand the complete clinical picture and feel confident in their decisions.
+  const basePrompt = `You are MedGemma, a senior clinical decision support specialist for UtanoBridge, working alongside nurses as their experienced clinical colleague. Your role is to provide thoughtful, context-aware explanations that help nurses understand the complete clinical picture and feel confident in their decisions.
 
 IMPORTANT: Keep your response concise and focused - MAXIMUM 250 WORDS. Avoid repetitive phrases or excessive detail. Each sentence should add new value to the clinical understanding.
 

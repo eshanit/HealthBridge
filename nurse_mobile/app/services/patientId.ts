@@ -1,7 +1,7 @@
 /**
  * Clinical Patient Token (CPT) Generator Service
  * 
- * Generates unique, human-readable patient identifiers for the HealthBridge
+ * Generates unique, human-readable patient identifiers for the UtanoBridge
  * clinical workflow system. Supports offline generation and follows the
  * CP-XXXX-XXXX format.
  * 

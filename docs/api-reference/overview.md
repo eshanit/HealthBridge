@@ -1,4 +1,4 @@
-# HealthBridge API Reference
+# UtanoBridge API Reference
 
 **Version:** 1.0  
 **Last Updated:** February 2026  
@@ -20,7 +20,7 @@
 
 ## 1. Overview
 
-HealthBridge provides RESTful APIs for both the web application and mobile application. All APIs use JSON for request and response bodies.
+UtanoBridge provides RESTful APIs for both the web application and mobile application. All APIs use JSON for request and response bodies.
 
 ### Base URLs
 

@@ -13,7 +13,7 @@ withDefaults(
 </script>
 
 <template>
-    <Head title="Welcome - Healthbridge">
+    <Head title="Welcome - Utanobridge">
         <link rel="preconnect" href="https://rsms.me/" />
         <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
     </Head>
@@ -24,7 +24,7 @@ withDefaults(
             class="mb-6 w-full max-w-[335px] text-sm not-has-[nav]:hidden lg:max-w-4xl"
         >
             <nav class="flex items-center justify-between gap-4">
-                <!-- Healthbridge Logo -->
+                <!-- Utanobridge Logo -->
                 <div class="flex items-center gap-2">
                     <div class="flex size-8 items-center justify-center rounded-lg bg-blue-600 text-white">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-5 fill-current">
@@ -32,7 +32,7 @@ withDefaults(
                             <path d="M10 3H14V5H10V3ZM10 5H14V7H10V5ZM8 5H10V7H8V5ZM14 5H16V7H14V5Z" opacity="0.8"/>
                         </svg>
                     </div>
-                    <span class="text-lg font-bold text-slate-900 dark:text-white">Healthbridge</span>
+                    <span class="text-lg font-bold text-slate-900 dark:text-white">Utanobridge</span>
                 </div>
                 
                 <div class="flex items-center gap-4">
@@ -67,7 +67,7 @@ withDefaults(
                         Bridging Healthcare Together
                     </h1>
                     <p class="mb-6 text-slate-600 dark:text-slate-400">
-                        Healthbridge connects healthcare providers, streamlines clinical workflows, 
+                        Utanobridge connects healthcare providers, streamlines clinical workflows, 
                         and empowers better patient outcomes through intelligent technology.
                     </p>
                     
@@ -182,7 +182,7 @@ withDefaults(
         
         <!-- Footer -->
         <footer class="mt-8 w-full max-w-[335px] text-center text-xs text-slate-500 lg:max-w-4xl dark:text-slate-500">
-            <p>&copy; 2024 Healthbridge. Empowering healthcare providers worldwide.</p>
+            <p>&copy; 2024 Utanobridge. Empowering healthcare providers worldwide.</p>
         </footer>
     </div>
 </template>
