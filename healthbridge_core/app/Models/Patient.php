@@ -10,6 +10,13 @@ class Patient extends Model
     use HasFactory;
 
     /**
+     * Patient source constants
+     */
+    public const SOURCE_NURSE_MOBILE = 'nurse_mobile';
+    public const SOURCE_GP_MANUAL = 'gp_manual';
+    public const SOURCE_IMPORTED = 'imported';
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var array<int, string>
@@ -28,6 +35,8 @@ class Patient extends Model
         'phone',
         'visit_count',
         'is_active',
+        'source',
+        'created_by_user_id',
         'raw_document',
         'last_visit_at',
     ];
@@ -64,6 +73,14 @@ class Patient extends Model
     }
 
     /**
+     * Get the user who created this patient record.
+     */
+    public function createdByUser()
+    {
+        return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    /**
      * Get the patient's full name.
      */
     public function getFullNameAttribute(): string
@@ -92,6 +109,22 @@ class Patient extends Model
     }
 
     /**
+     * Check if patient was synced from nurse_mobile.
+     */
+    public function isFromNurseMobile(): bool
+    {
+        return $this->source === self::SOURCE_NURSE_MOBILE;
+    }
+
+    /**
+     * Check if patient was created manually by GP.
+     */
+    public function isGpCreated(): bool
+    {
+        return $this->source === self::SOURCE_GP_MANUAL;
+    }
+
+    /**
      * Scope for active patients.
      */
     public function scopeActive($query)
@@ -113,7 +146,32 @@ class Patient extends Model
     }
 
     /**
+     * Scope for patients from a specific source.
+     */
+    public function scopeFromSource($query, string $source)
+    {
+        return $query->where('source', $source);
+    }
+
+    /**
+     * Scope for patients synced from nurse_mobile.
+     */
+    public function scopeFromNurseMobile($query)
+    {
+        return $query->where('source', self::SOURCE_NURSE_MOBILE);
+    }
+
+    /**
+     * Scope for patients created by GP.
+     */
+    public function scopeGpCreated($query)
+    {
+        return $query->where('source', self::SOURCE_GP_MANUAL);
+    }
+
+    /**
      * Sync patient data from CouchDB document.
+     * This is called by SyncService when receiving documents from nurse_mobile.
      */
     public static function syncFromCouch(array $doc): self
     {
@@ -134,6 +192,7 @@ class Patient extends Model
                 'phone' => $patient['phone'] ?? null,
                 'visit_count' => $patient['visitCount'] ?? 1,
                 'is_active' => $patient['isActive'] ?? true,
+                'source' => self::SOURCE_NURSE_MOBILE, // Always set source when syncing from CouchDB
                 'raw_document' => $doc,
                 'last_visit_at' => isset($patient['lastVisit']) ? $patient['lastVisit'] : null,
             ]

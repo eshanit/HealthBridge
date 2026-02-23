@@ -47,6 +47,11 @@ class GPDashboardTestSeeder extends Seeder
         $patients = Patient::all();
         if ($patients->count() < 10) {
             for ($i = $patients->count(); $i < 10; $i++) {
+                // Alternate between nurse_mobile and gp_manual sources
+                $source = $i % 3 === 0 
+                    ? Patient::SOURCE_NURSE_MOBILE  // Simulate synced patients
+                    : Patient::SOURCE_GP_MANUAL;     // GP-created patients
+                    
                 Patient::create([
                     'couch_id' => 'patient_' . Str::uuid()->toString(),
                     'cpt' => 'CPT' . str_pad($i + 100, 6, '0', STR_PAD_LEFT),
@@ -56,6 +61,8 @@ class GPDashboardTestSeeder extends Seeder
                     'date_of_birth' => fake()->date('Y-m-d', '-80 years'),
                     'phone' => fake()->phoneNumber(),
                     'address' => fake()->address(),
+                    'source' => $source,
+                    'created_by_user_id' => $source === Patient::SOURCE_GP_MANUAL ? $doctor->id : null,
                 ]);
             }
             $patients = Patient::all();

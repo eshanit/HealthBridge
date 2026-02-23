@@ -18,6 +18,8 @@ interface PatientSummary {
     waiting_minutes?: number;
     danger_signs?: string[];
     last_updated: string;
+    source?: 'nurse_mobile' | 'gp_manual' | 'imported';
+    is_from_nurse?: boolean;
 }
 
 interface Referral {
@@ -444,6 +446,9 @@ onMounted(() => {
                                         <span class="font-medium truncate">{{ patient.full_name }}</span>
                                         <Badge v-if="patient.triage_priority" :variant="triageBadgeVariant[patient.triage_priority]" class="shrink-0">
                                             {{ patient.triage_priority.toUpperCase() }}
+                                        </Badge>
+                                        <Badge v-if="patient.is_from_nurse" variant="outline" class="shrink-0 text-xs">
+                                            Nurse
                                         </Badge>
                                     </div>
                                     <div class="text-sm text-muted-foreground mt-0.5">

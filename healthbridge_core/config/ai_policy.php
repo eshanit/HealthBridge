@@ -82,6 +82,7 @@ return [
             'clinical_summary',
             'handoff_report',
             'explain_triage',
+            'gp_chat',
         ],
         'radiologist' => [
             'imaging_interpretation',
@@ -163,6 +164,11 @@ return [
             'description' => 'Text-based rash assessment support',
             'max_tokens' => 600,
             'temperature' => 0.2,
+        ],
+        'gp_chat' => [
+            'description' => 'Interactive chat with Specialist GP persona',
+            'max_tokens' => 1000,
+            'temperature' => 0.4,
         ],
     ],
 

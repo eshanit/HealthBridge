@@ -280,6 +280,7 @@ class ContextBuilder
             'red_case_analysis' => $this->enrichRedCaseAnalysis($context),
             'clinical_summary' => $this->enrichClinicalSummary($context),
             'handoff_report' => $this->enrichHandoffReport($context),
+            'gp_chat' => $this->enrichGpChat($context),
             default => $context,
         };
     }
@@ -605,6 +606,39 @@ class ContextBuilder
         // Ensure required fields
         $context['age'] = $context['age'] ?? 'Unknown';
         $context['gender'] = $context['gender'] ?? 'Unknown';
+
+        return $context;
+    }
+
+    /**
+     * Enrich context for gp_chat task.
+     * This prepares context for the Specialist GP Chat agent.
+     */
+    protected function enrichGpChat(array $context): array
+    {
+        // Format vitals for display
+        if (isset($context['vitals'])) {
+            $context['vitals'] = $this->formatVitals($context['vitals']);
+        } else {
+            $context['vitals'] = 'No vital signs recorded';
+        }
+
+        // Format danger signs for display
+        if (isset($context['danger_signs']) && !empty($context['danger_signs'])) {
+            $dangerSigns = is_array($context['danger_signs']) ? $context['danger_signs'] : [$context['danger_signs']];
+            $context['danger_signs'] = implode("\n- ", array_unique($dangerSigns));
+            $context['danger_signs'] = "- " . $context['danger_signs'];
+        } else {
+            $context['danger_signs'] = 'No danger signs identified';
+        }
+
+        // Ensure we have default values for required fields
+        $context['age'] = $context['age'] ?? 'Unknown';
+        $context['gender'] = $context['gender'] ?? 'Unknown';
+        $context['triage_priority'] = $context['triage_priority'] ?? $context['triage_color'] ?? 'Unknown';
+        $context['chief_complaint'] = $context['chief_complaint'] ?? 'Not specified';
+        $context['user_question'] = $context['user_question'] ?? 'How can I help?';
+        $context['conversation_history'] = $context['conversation_history'] ?? 'No previous conversation.';
 
         return $context;
     }

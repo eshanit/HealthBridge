@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Ai;
 
+use App\Ai\Agents\SpecialistGpChatAgent;
 use App\Ai\Agents\TriageExplanationAgent;
 use App\Ai\Agents\TreatmentReviewAgent;
 use App\Ai\Tools\DosageCalculatorTool;
@@ -57,6 +58,7 @@ class MedGemmaController extends Controller
     protected array $taskAgents = [
         'explain_triage' => TriageExplanationAgent::class,
         'review_treatment' => TreatmentReviewAgent::class,
+        'gp_chat' => SpecialistGpChatAgent::class,
     ];
 
     /**
@@ -75,6 +77,7 @@ class MedGemmaController extends Controller
         'explain_triage',
         'review_treatment',
         'clinical_assistance',
+        'gp_chat',
     ];
 
     public function __construct(
@@ -130,6 +133,11 @@ class MedGemmaController extends Controller
             ], 429)->withHeaders($rateLimitResult['headers']);
         }
 
+        // Special handling for gp_chat task - use conversational agent with persistence
+        if ($task === 'gp_chat') {
+            return $this->handleGpChat($request, $user, $userRole, $startTime);
+        }
+
         // Check if streaming is requested and supported
         if ($request->input('stream', false) && in_array($task, $this->streamableTasks)) {
             return $this->handleStreamingRequest($request, $task, $user, $userRole);
@@ -142,6 +150,128 @@ class MedGemmaController extends Controller
 
         // Fall back to legacy OllamaClient
         return $this->handleWithLegacyClient($request, $task, $user, $userRole, $startTime, $conversationId);
+    }
+
+    /**
+     * Handle GP Chat request with interactive conversation.
+     *
+     * This method uses the OllamaClient directly with the gp_chat task
+     * to provide interactive chat with the Specialist GP persona.
+     */
+    protected function handleGpChat(
+        Request $request,
+        $user,
+        string $userRole,
+        float $startTime
+    ): JsonResponse {
+        try {
+            $conversationId = $request->input('conversation_id');
+            $userQuestion = $request->input('context.user_question', $request->input('question', ''));
+
+            // Build context using existing ContextBuilder
+            $context = $this->contextBuilder->build('gp_chat', $request->all());
+
+            // Build prompt using existing PromptBuilder with the specialistGpChatTemplate
+            $promptResult = $this->promptBuilder->build('gp_chat', $context);
+
+            // Generate completion using OllamaClient
+            $generateResult = $this->ollamaClient->generate($promptResult['prompt'], [
+                'temperature' => $promptResult['metadata']['temperature'] ?? 0.4,
+                'max_tokens' => $promptResult['metadata']['max_tokens'] ?? 1000,
+                'model' => $promptResult['metadata']['model'] ?? config('ai_policy.ollama.model', 'gemma3:4b'),
+            ]);
+
+            if (!$generateResult['success']) {
+                return $this->errorResponse(
+                    'AI generation failed',
+                    $generateResult['error'],
+                    503
+                );
+            }
+
+            // Validate output using OutputValidator
+            $validationResult = $this->outputValidator->fullValidation(
+                $generateResult['response'],
+                'gp_chat',
+                $userRole
+            );
+
+            // Calculate latency
+            $latencyMs = round((microtime(true) - $startTime) * 1000);
+
+            // Generate or reuse conversation ID
+            $responseConversationId = $conversationId ?? Str::uuid()->toString();
+
+            // Log the request
+            $aiRequest = $this->logRequest([
+                'user_id' => $user->id,
+                'task' => 'gp_chat',
+                'prompt' => $promptResult['prompt'],
+                'response' => $validationResult['output'],
+                'prompt_version' => 'gp_chat_v1',
+                'model' => $generateResult['metadata']['model'] ?? config('ai_policy.ollama.model'),
+                'latency_ms' => $latencyMs,
+                'was_overridden' => !$validationResult['valid'],
+                'risk_flags' => array_merge(
+                    $validationResult['blocked'],
+                    $validationResult['risk_flags']
+                ),
+                'context' => $context,
+                'metadata' => [
+                    'provider' => 'ollama',
+                    'conversation_id' => $responseConversationId,
+                    'warnings' => $validationResult['warnings'],
+                ],
+            ]);
+
+            // Record in monitor
+            $this->monitor->recordRequest([
+                'task' => 'gp_chat',
+                'user_id' => $user->id,
+                'success' => true,
+                'latency_ms' => $latencyMs,
+                'from_cache' => false,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'task' => 'gp_chat',
+                'response' => $validationResult['output'],
+                'output' => $validationResult['output'],
+                'conversation_id' => $responseConversationId,
+                'request_id' => $aiRequest->request_uuid,
+                'metadata' => [
+                    'provider' => 'ollama',
+                    'model' => $generateResult['metadata']['model'] ?? config('ai_policy.ollama.model'),
+                    'latency_ms' => $latencyMs,
+                    'warnings' => $validationResult['warnings'],
+                ],
+            ]);
+
+        } catch (\Exception $e) {
+            // Handle error
+            $errorResult = $this->errorHandler->handle($e, [
+                'task' => 'gp_chat',
+                'user_id' => $user->id,
+                'context' => $request->all(),
+            ]);
+
+            // Record error in monitor
+            $this->monitor->recordRequest([
+                'task' => 'gp_chat',
+                'user_id' => $user->id,
+                'success' => false,
+                'latency_ms' => round((microtime(true) - $startTime) * 1000),
+                'from_cache' => false,
+                'error' => $errorResult['category'],
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => $errorResult['message'],
+                'category' => $errorResult['category'],
+            ], $errorResult['status_code']);
+        }
     }
 
     /**

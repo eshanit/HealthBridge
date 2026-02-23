@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 interface Patient {
@@ -83,6 +84,10 @@ const isLoading = ref(false);
 const aiResponse = ref<string | null>(null);
 const aiError = ref<string | null>(null);
 
+// Chat-specific state
+const chatInput = ref('');
+const messagesContainer = ref<HTMLElement | null>(null);
+
 // Conversation memory state
 const conversationId = ref<string | null>(null);
 const conversationHistory = ref<ConversationMessage[]>([]);
@@ -106,6 +111,7 @@ watch(() => props.patient.id, (newPatientId, oldPatientId) => {
         selectedTask.value = null;
         aiResponse.value = null;
         aiError.value = null;
+        chatInput.value = '';
         isLoading.value = false;
         loadConversationHistory();
     }
@@ -139,7 +145,7 @@ const loadConversationHistory = () => {
         
         if (stored) {
             const data = JSON.parse(stored);
-            conversationId.value = data.conversationId;
+            conversationId.value = data.conversationId || null;
             conversationHistory.value = data.messages || [];
         } else {
             conversationHistory.value = [];
@@ -177,6 +183,7 @@ const clearConversationHistory = () => {
     conversationHistory.value = [];
     conversationId.value = null;
     aiResponse.value = null;
+    chatInput.value = '';
 };
 
 const executeTask = async (taskId: string) => {
@@ -278,6 +285,111 @@ const formatTimestamp = (timestamp: string): string => {
     const date = new Date(timestamp);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
+
+// Scroll to bottom of messages
+const scrollToBottom = async () => {
+    await nextTick();
+    if (messagesContainer.value) {
+        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+    }
+};
+
+// Send chat message to the AI
+const sendChatMessage = async () => {
+    if (!chatInput.value.trim() || isLoading.value) return;
+
+    const userQuestion = chatInput.value.trim();
+    chatInput.value = '';
+    isLoading.value = true;
+    aiError.value = null;
+    selectedTask.value = null;
+    aiResponse.value = null;
+
+    try {
+        // Build request for gp_chat task
+        const requestBody: Record<string, unknown> = {
+            task: 'gp_chat',
+            patient_id: props.patient.id,
+            context: {
+                triage_color: props.patient.triage_color,
+                danger_signs: props.patient.danger_signs,
+                vitals: props.patient.vitals,
+                age: props.patient.age,
+                gender: props.patient.gender,
+                chief_complaint: props.patient.status,
+                user_question: userQuestion,
+            },
+        };
+
+        // Include conversation ID if we have one (for persistent conversation)
+        if (conversationId.value) {
+            requestBody.conversation_id = conversationId.value;
+        }
+
+        const response = await fetch('/api/ai/medgemma', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+            },
+            body: JSON.stringify(requestBody),
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            aiResponse.value = data.output || data.explanation || JSON.stringify(data, null, 2);
+
+            // Update conversation ID from response (for persistent conversation)
+            if (data.conversation_id) {
+                conversationId.value = data.conversation_id;
+            }
+
+            // Add to conversation history for display
+            if (rememberConversation.value) {
+                // Add user message
+                conversationHistory.value.push({
+                    id: `msg_${Date.now()}_user`,
+                    role: 'user',
+                    content: userQuestion,
+                    timestamp: new Date().toISOString(),
+                    task: 'gp_chat',
+                });
+
+                // Add assistant message
+                conversationHistory.value.push({
+                    id: `msg_${Date.now()}_assistant`,
+                    role: 'assistant',
+                    content: aiResponse.value ?? '',
+                    timestamp: new Date().toISOString(),
+                    task: 'gp_chat',
+                });
+
+                // Save to sessionStorage for display purposes
+                saveConversationHistory();
+            }
+
+            // Scroll to bottom after response
+            setTimeout(scrollToBottom, 100);
+            emit('aiTask', 'gp_chat');
+        } else {
+            const errorData = await response.json().catch(() => ({}));
+            aiError.value = errorData.error || 'Failed to get AI response. Please try again.';
+        }
+    } catch (error) {
+        console.error('Chat message failed:', error);
+        aiError.value = 'An error occurred. Please try again.';
+    } finally {
+        isLoading.value = false;
+    }
+};
+
+// Handle Enter key in chat input
+const handleChatKeydown = (event: KeyboardEvent) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendChatMessage();
+    }
+};
 </script>
 
 <template>
@@ -364,6 +476,92 @@ const formatTimestamp = (timestamp: string): string => {
                         />
                     </div>
                 </div>
+            </CardContent>
+        </Card>
+
+        <!-- Interactive Chat Section -->
+        <Card>
+            <CardHeader class="pb-2">
+                <CardTitle class="text-lg flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span>💬</span>
+                        <span>Chat with Specialist GP</span>
+                        <Badge variant="outline">Interactive</Badge>
+                    </div>
+                </CardTitle>
+            </CardHeader>
+            <CardContent class="space-y-4">
+                <!-- Chat Messages Display -->
+                <div 
+                    ref="messagesContainer"
+                    class="border rounded-lg p-3 bg-muted/30 max-h-80 overflow-y-auto space-y-3"
+                >
+                    <!-- Welcome message when no conversation -->
+                    <div v-if="conversationHistory.length === 0" class="text-center py-4 text-muted-foreground">
+                        <svg class="h-10 w-10 mx-auto mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        <p class="text-sm">Ask any clinical question</p>
+                        <p class="text-xs mt-1">The AI will respond as a Specialist GP</p>
+                    </div>
+
+                    <!-- Chat messages -->
+                    <div
+                        v-for="message in conversationHistory"
+                        :key="message.id"
+                        :class="cn(
+                            'flex',
+                            message.role === 'user' ? 'justify-end' : 'justify-start'
+                        )"
+                    >
+                        <div
+                            :class="cn(
+                                'max-w-[85%] rounded-lg px-3 py-2 text-sm',
+                                message.role === 'user'
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'bg-card border'
+                            )"
+                        >
+                            <div class="flex items-center gap-2 mb-1">
+                                <Badge :variant="message.role === 'user' ? 'default' : 'secondary'" class="text-xs">
+                                    {{ message.role === 'user' ? 'You' : 'Specialist GP' }}
+                                </Badge>
+                                <span class="text-xs text-muted-foreground">{{ formatTimestamp(message.timestamp) }}</span>
+                            </div>
+                            <div class="whitespace-pre-wrap">{{ message.content }}</div>
+                        </div>
+                    </div>
+
+                    <!-- Loading indicator -->
+                    <div v-if="isLoading && conversationHistory.length > 0" class="flex justify-start">
+                        <div class="bg-card border rounded-lg px-3 py-2">
+                            <div class="flex items-center gap-2">
+                                <div class="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full"></div>
+                                <span class="text-sm text-muted-foreground">Thinking...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Input -->
+                <form @submit.prevent="sendChatMessage" class="flex gap-2">
+                    <Input
+                        v-model="chatInput"
+                        placeholder="Type your clinical question here..."
+                        :disabled="isLoading"
+                        class="flex-1"
+                        @keydown="handleChatKeydown"
+                    />
+                    <Button type="submit" :disabled="isLoading || !chatInput.trim()">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                        </svg>
+                    </Button>
+                </form>
+
+                <p class="text-xs text-muted-foreground text-center">
+                    Press Enter to send. Shift+Enter for new line.
+                </p>
             </CardContent>
         </Card>
 

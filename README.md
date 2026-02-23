@@ -13,12 +13,14 @@
 
 - [Architecture Overview](#architecture-overview)
 - [System Components](#system-components)
-- [Prerequisites](#prerequisites)
-- [Component Setup Guides](#component-setup-guides)
-  - [1. nurse_mobile (Frontliner Mobile Application)](#1-nurse_mobile-frontliner-mobile-application)
-  - [2. healthbridge_core (Backend Core Services)](#2-healthbridge_core-backend-core-services)
-  - [3. Reverb (WebSocket Infrastructure)](#3-reverb-websocket-infrastructure)
-  - [4. Ollama with MedGemma (Local AI/ML Integration)](#4-ollama-with-medgemma-local-aiml-integration)
+- [Docker Deployment (Recommended)](#docker-deployment-recommended)
+- [Manual Installation](#manual-installation)
+  - [Prerequisites](#prerequisites)
+  - [Component Setup Guides](#component-setup-guides)
+    - [1. nurse_mobile (Frontliner Mobile Application)](#1-nurse_mobile-frontliner-mobile-application)
+    - [2. healthbridge_core (Backend Core Services)](#2-healthbridge_core-backend-core-services)
+    - [3. Reverb (WebSocket Infrastructure)](#3-reverb-websocket-infrastructure)
+    - [4. Ollama with MedGemma (Local AI/ML Integration)](#4-ollama-with-medgemma-local-aiml-integration)
 - [Cross-Component Integration](#cross-component-integration)
 - [Development Workflow](#development-workflow)
 - [Testing](#testing)
@@ -157,7 +159,155 @@ Local AI/ML inference server for clinical decision support.
 
 ---
 
-## Prerequisites
+## Docker Deployment (Recommended)
+
+> **🚀 Quick Start**: Deploy the entire HealthBridge platform with a single command using Docker Compose. This is the recommended method for production deployments and client installations.
+
+### Why Docker?
+
+- **Single-Command Deployment**: Launch all services with one command
+- **Consistent Environment**: Same configuration across development, staging, and production
+- **Easy Scaling**: Scale individual services as needed
+- **Isolation**: Services run in isolated containers with defined networking
+- **Data Persistence**: Volumes ensure data survives container restarts
+
+### Prerequisites
+
+| Requirement | Version | Installation |
+|-------------|---------|--------------|
+| **Docker Engine** | 24.0+ | [Install Docker](https://docs.docker.com/engine/install/) |
+| **Docker Compose** | 2.20+ | Included with Docker Desktop |
+| **Git** | Latest | [Install Git](https://git-scm.com/downloads) |
+
+### Quick Start
+
+#### 1. Clone the Repository
+
+```bash
+git clone <repository-url>
+cd HealthBridge
+```
+
+#### 2. Configure Environment
+
+```bash
+# Copy the example environment file
+cp .env.docker.example .env
+
+# Edit with your configuration (optional - defaults work for local testing)
+nano .env
+```
+
+#### 3. Deploy with Single Command
+
+**Linux/macOS:**
+```bash
+./deploy.sh deploy
+```
+
+**Windows:**
+```cmd
+deploy.bat deploy
+```
+
+**Or using Make:**
+```bash
+make deploy
+```
+
+That's it! The deployment script will:
+1. ✅ Generate secure secrets automatically
+2. ✅ Build all Docker images
+3. ✅ Start all services
+4. ✅ Run database migrations
+5. ✅ Set up CouchDB databases
+6. ✅ Pull the AI model
+
+### Access Points
+
+After deployment, access the application at:
+
+| Service | URL | Description |
+|---------|-----|-------------|
+| **Nurse Mobile** | http://localhost | Frontliner mobile application |
+| **GP Dashboard** | http://localhost/admin | Specialist dashboard |
+| **API Endpoint** | http://localhost/api | Laravel API gateway |
+| **CouchDB Fauxton** | http://localhost/couchdb/_utils/ | Database management UI |
+
+### Service Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    NGINX Reverse Proxy (Port 80)                │
+└───────────────────────────────┬─────────────────────────────────┘
+                                │
+        ┌───────────────────────┼───────────────────────┐
+        │                       │                       │
+        ▼                       ▼                       ▼
+┌───────────────┐     ┌───────────────┐     ┌───────────────┐
+│  Nurse Mobile │     │  HealthBridge │     │    Ollama     │
+│   (Nuxt.js)   │     │   (Laravel)   │     │   (AI/LLM)    │
+│   Port 3000   │     │  Port 8000    │     │  Port 11434   │
+└───────┬───────┘     └───────┬───────┘     └───────────────┘
+        │                     │
+        │    ┌────────────────┼────────────────┐
+        │    │                │                │
+        │    ▼                ▼                ▼
+        │ ┌────────┐    ┌──────────┐    ┌────────┐
+        │ │ MySQL  │    │ CouchDB  │    │ Redis  │
+        │ └────────┘    └──────────┘    └────────┘
+        │
+        └────────────────▶ PouchDB Sync (Offline Support)
+```
+
+### Common Commands
+
+```bash
+# View service status
+docker compose ps
+
+# View logs (all services)
+docker compose logs -f
+
+# View logs (specific service)
+docker compose logs -f healthbridge
+
+# Stop all services
+docker compose down
+
+# Restart services
+docker compose restart
+
+# Open shell in container
+docker compose exec healthbridge bash
+
+# Create backup
+./deploy.sh backup
+
+# Full cleanup (removes data!)
+./deploy.sh clean
+```
+
+### GPU Support (Optional)
+
+For AI acceleration with NVIDIA GPUs:
+
+1. Install [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
+2. The Ollama service automatically uses GPU when available
+
+### Detailed Configuration
+
+For advanced configuration options, SSL/HTTPS setup, and production tuning, see:
+
+📖 **[Docker Deployment Guide](docs/DOCKER_DEPLOYMENT_GUIDE.md)**
+
+---
+
+## Manual Installation
+
+> **Note**: Manual installation is recommended only for development or when Docker is not available. For production deployments, use the [Docker Deployment](#docker-deployment-recommended) method above.
+
+### Prerequisites
 
 ### Software Requirements
 
@@ -549,6 +699,65 @@ Rollback migrations:
 ```bash
 php artisan migrate:rollback
 ```
+
+#### CouchDB Sync Worker
+
+The sync worker polls CouchDB for changes and syncs documents to MySQL. This enables the GP dashboard to display patients and clinical sessions created in nurse_mobile.
+
+##### Start the Sync Worker
+
+```bash
+# Run continuously (polls every 4 seconds by default)
+php artisan sync:couch
+
+# Run once and exit
+php artisan sync:couch --once
+
+# Custom interval (poll every 2 seconds)
+php artisan sync:couch --interval=2
+
+# Custom batch size (process up to 200 documents per cycle)
+php artisan sync:couch --limit=200
+```
+
+##### Sync Worker Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--interval` | 4 | Seconds between sync cycles |
+| `--limit` | 100 | Maximum documents to process per cycle |
+| `--once` | false | Run single sync cycle and exit |
+
+##### Document Types Synced
+
+The sync worker processes the following CouchDB document types:
+
+| Type | MySQL Model | Description |
+|------|-------------|-------------|
+| `clinicalPatient` | `Patient` | Patient demographics |
+| `clinicalSession` | `ClinicalSession` | Clinical visit sessions |
+| `clinicalForm` | `ClinicalForm` | Completed clinical forms |
+| `aiLog` | `AiRequest` | AI request logs |
+| `clinicalReport` | `StoredReport` | Generated reports |
+| `radiologyStudy` | `RadiologyStudy` | Radiology orders |
+
+##### Production Deployment
+
+For production, use Supervisor to keep the sync worker running:
+
+```bash
+# Copy the supervisor config
+sudo cp healthbridge_core/deploy/supervisor/healthbridge-couchdb-sync.conf /etc/supervisor/conf.d/
+
+# Reread and update supervisor
+sudo supervisorctl reread
+sudo supervisorctl update
+
+# Check status
+sudo supervisorctl status healthbridge-couchdb-sync
+```
+
+See [`deploy/supervisor/healthbridge-couchdb-sync.conf`](healthbridge_core/deploy/supervisor/healthbridge-couchdb-sync.conf) for the full configuration.
 
 #### Testing Procedures
 

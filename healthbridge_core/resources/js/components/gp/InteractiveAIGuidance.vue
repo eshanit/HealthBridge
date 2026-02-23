@@ -163,11 +163,11 @@ const sendQuestion = async () => {
                 'Accept': 'application/json',
             },
             body: JSON.stringify({
-                task: 'clinical_summary',
+                task: 'gp_chat',
                 sessionId: props.sessionCouchId,
                 context: {
                     ...props.patientContext,
-                    question: userQuestion,
+                    user_question: userQuestion,
                 },
                 conversation_id: conversationId.value,
             }),

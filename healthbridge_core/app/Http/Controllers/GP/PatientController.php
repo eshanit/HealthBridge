@@ -103,6 +103,8 @@ class PatientController extends Controller
             'waiting_minutes' => $latestSession?->waiting_minutes,
             'danger_signs' => $latestSession?->danger_signs ?? [],
             'last_updated' => $patient->last_visit_at?->toIso8601String(),
+            'source' => $patient->source,
+            'is_from_nurse' => $patient->isFromNurseMobile(),
         ];
     }
 
@@ -118,6 +120,9 @@ class PatientController extends Controller
 
     /**
      * Store a newly registered patient.
+     * 
+     * Creates a patient record in both MySQL and CouchDB with proper
+     * document structure matching nurse_mobile's clinicalPatient format.
      */
     public function store(Request $request): JsonResponse
     {
@@ -143,7 +148,7 @@ class PatientController extends Controller
                 $ageMonths = $dob->diffInMonths(now());
             }
 
-            // Create patient in MySQL
+            // Create patient in MySQL with GP source
             $patient = Patient::create([
                 'cpt' => $cpt,
                 'first_name' => $validated['first_name'],
@@ -155,25 +160,33 @@ class PatientController extends Controller
                 'weight_kg' => $validated['weight_kg'] ?? null,
                 'visit_count' => 1,
                 'is_active' => true,
+                'source' => Patient::SOURCE_GP_MANUAL,
+                'created_by_user_id' => $request->user()->id,
                 'last_visit_at' => now(),
             ]);
 
-            // Create patient document in CouchDB
+            // Create patient document in CouchDB using clinicalPatient format
+            // This matches the structure used by nurse_mobile for consistency
             $couchDoc = [
-                'type' => 'patient',
-                'cpt' => $patient->cpt,
-                'firstName' => $patient->first_name,
-                'lastName' => $patient->last_name,
-                'dateOfBirth' => $patient->date_of_birth?->format('Y-m-d'),
-                'ageMonths' => $ageMonths,
-                'gender' => $patient->gender,
-                'phone' => $patient->phone,
-                'weightKg' => $patient->weight_kg,
-                'visitCount' => 1,
-                'isActive' => true,
-                'createdAt' => now()->toIso8601String(),
-                'updatedAt' => now()->toIso8601String(),
-                'createdBy' => $request->user()->id,
+                '_id' => 'patient:' . $cpt,
+                'type' => 'clinicalPatient',
+                'patient' => [
+                    'id' => $cpt,
+                    'cpt' => $cpt,
+                    'firstName' => $patient->first_name,
+                    'lastName' => $patient->last_name,
+                    'dateOfBirth' => $patient->date_of_birth?->format('Y-m-d'),
+                    'ageMonths' => $ageMonths,
+                    'gender' => $patient->gender,
+                    'phone' => $patient->phone,
+                    'weightKg' => $patient->weight_kg,
+                    'visitCount' => 1,
+                    'isActive' => true,
+                    'createdAt' => now()->toIso8601String(),
+                    'updatedAt' => now()->toIso8601String(),
+                    'createdBy' => $request->user()->id,
+                    'source' => Patient::SOURCE_GP_MANUAL,
+                ],
             ];
 
             $couchResult = $this->couchDbService->saveDocument($couchDoc);
@@ -182,10 +195,10 @@ class PatientController extends Controller
             $couchSuccess = isset($couchResult['ok']) && $couchResult['ok'] === true;
 
             if ($couchSuccess) {
-                // Update patient with CouchDB ID
+                // Update patient with CouchDB ID and revision
                 $patient->update([
                     'couch_id' => $couchResult['id'],
-                    'raw_document' => array_merge($couchDoc, ['_id' => $couchResult['id'], '_rev' => $couchResult['rev']]),
+                    'raw_document' => array_merge($couchDoc, ['_rev' => $couchResult['rev']]),
                 ]);
             }
 
@@ -205,6 +218,7 @@ class PatientController extends Controller
                     'date_of_birth' => $patient->date_of_birth?->format('Y-m-d'),
                     'gender' => $patient->gender,
                     'phone' => $patient->phone,
+                    'source' => $patient->source,
                 ],
                 'session' => [
                     'id' => $session->id,

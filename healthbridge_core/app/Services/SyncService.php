@@ -50,6 +50,9 @@ class SyncService
 
     /**
      * Sync a patient document.
+     * 
+     * Handles both encrypted and non-encrypted patient documents.
+     * Sets source to 'nurse_mobile' for all synced patients.
      */
     protected function syncPatient(array $doc): void
     {
@@ -79,6 +82,7 @@ class SyncService
                     'cpt' => $cpt ?? 'UNKNOWN-' . substr($couchId, -8),
                     'visit_count' => 1,
                     'is_active' => true,
+                    'source' => Patient::SOURCE_NURSE_MOBILE,
                     'raw_document' => $doc,
                 ]
             );
@@ -94,6 +98,8 @@ class SyncService
             ['couch_id' => $couchId],
             [
                 'cpt' => $patient['cpt'] ?? $cpt ?? $patient['id'] ?? null,
+                'first_name' => $patient['firstName'] ?? $patient['first_name'] ?? null,
+                'last_name' => $patient['lastName'] ?? $patient['last_name'] ?? null,
                 'short_code' => $patient['shortCode'] ?? null,
                 'external_id' => $patient['externalId'] ?? null,
                 'date_of_birth' => $patient['dateOfBirth'] ?? null,
@@ -103,6 +109,7 @@ class SyncService
                 'phone' => $patient['phone'] ?? null,
                 'visit_count' => $patient['visitCount'] ?? 1,
                 'is_active' => $patient['isActive'] ?? true,
+                'source' => Patient::SOURCE_NURSE_MOBILE, // Always set source when syncing from CouchDB
                 'raw_document' => $doc,
                 'last_visit_at' => $patient['lastVisit'] ?? null,
             ]

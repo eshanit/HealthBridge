@@ -1,0 +1,371 @@
+# =============================================================================
+# HealthBridge Platform - Docker Compose Configuration
+# Production-ready multi-service orchestration
+# =============================================================================
+# 
+# Quick Start:
+#   1. Copy .env.example to .env and configure
+#   2. Run: docker compose up -d
+#   3. Access: http://localhost (Nurse Mobile) or http://localhost/admin (GP Dashboard)
+#
+# Services:
+#   - nginx          : Reverse proxy (port 80/443)
+#   - nurse_mobile   : Nuxt.js frontend for nurses (port 3000 internal)
+#   - healthbridge   : Laravel backend API (port 8000 internal)
+#   - mysql          : Primary relational database (port 3306 internal)
+#   - couchdb        : Document store for offline sync (port 5984 internal)
+#   - ollama         : Local AI inference engine (port 11434 internal)
+#   - redis          : Caching and queues (port 6379 internal)
+#
+# =============================================================================
+
+x-healthbridge-common: &healthbridge-common
+  networks:
+    - healthbridge-network
+  restart: unless-stopped
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  # ===========================================================================
+  # NGINX REVERSE PROXY
+  # ===========================================================================
+  nginx:
+    <<: *healthbridge-common
+    image: nginx:alpine
+    container_name: healthbridge-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+      - nginx-logs:/var/log/nginx
+    depends_on:
+      nurse_mobile:
+        condition: service_healthy
+      healthbridge:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "healthbridge.service=proxy"
+      - "healthbridge.description=Reverse proxy for unified access"
+
+  # ===========================================================================
+  # NURSE MOBILE - Nuxt.js Frontend
+  # ===========================================================================
+  nurse_mobile:
+    <<: *healthbridge-common
+    build:
+      context: .
+      dockerfile: docker/nurse_mobile/Dockerfile
+      args:
+        NUXT_PUBLIC_API_BASE_URL: ${NUXT_PUBLIC_API_BASE_URL:-http://localhost/api}
+        NUXT_PUBLIC_AI_ENABLED: ${NUXT_PUBLIC_AI_ENABLED:-true}
+        NUXT_PUBLIC_AI_ENDPOINT: ${NUXT_PUBLIC_AI_ENDPOINT:-http://localhost/ollama}
+        NUXT_PUBLIC_AI_MODEL: ${NUXT_PUBLIC_AI_MODEL:-gemma3:4b}
+        OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
+        OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma3:4b}
+        AI_RATE_LIMIT: ${AI_RATE_LIMIT:-30}
+        AI_TIMEOUT: ${AI_TIMEOUT:-60000}
+    container_name: healthbridge-nurse-mobile
+    expose:
+      - "3000"
+    environment:
+      - NUXT_HOST=0.0.0.0
+      - NUXT_PORT=3000
+      - NODE_ENV=production
+      - NUXT_PUBLIC_API_BASE_URL=${NUXT_PUBLIC_API_BASE_URL:-http://localhost/api}
+      - NUXT_PUBLIC_AI_ENABLED=${NUXT_PUBLIC_AI_ENABLED:-true}
+      - NUXT_PUBLIC_AI_ENDPOINT=${NUXT_PUBLIC_AI_ENDPOINT:-http://localhost/ollama}
+      - NUXT_PUBLIC_AI_MODEL=${NUXT_PUBLIC_AI_MODEL:-gemma3:4b}
+    depends_on:
+      healthbridge:
+        condition: service_healthy
+      couchdb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "healthbridge.service=frontend"
+      - "healthbridge.description=Nurse mobile application"
+
+  # ===========================================================================
+  # HEALTHBRIDGE CORE - Laravel Backend
+  # ===========================================================================
+  healthbridge:
+    <<: *healthbridge-common
+    build:
+      context: .
+      dockerfile: docker/healthbridge_core/Dockerfile
+    container_name: healthbridge-core
+    expose:
+      - "8000"
+      - "8080"
+    environment:
+      # Application
+      - APP_NAME=${APP_NAME:-HealthBridge}
+      - APP_ENV=${APP_ENV:-production}
+      - APP_KEY=${APP_KEY}
+      - APP_DEBUG=${APP_DEBUG:-false}
+      - APP_URL=${APP_URL:-http://localhost}
+      
+      # Database
+      - DB_CONNECTION=${DB_CONNECTION:-mysql}
+      - DB_HOST=${DB_HOST:-mysql}
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_DATABASE=${DB_DATABASE:-healthbridge}
+      - DB_USERNAME=${DB_USERNAME:-healthbridge}
+      - DB_PASSWORD=${DB_PASSWORD}
+      
+      # CouchDB
+      - COUCHDB_HOST=${COUCHDB_HOST:-http://couchdb:5984}
+      - COUCHDB_DATABASE=${COUCHDB_DATABASE:-healthbridge_clinic}
+      - COUCHDB_USERNAME=${COUCHDB_USERNAME:-admin}
+      - COUCHDB_PASSWORD=${COUCHDB_PASSWORD}
+      
+      # Redis
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-null}
+      
+      # Queue & Cache
+      - QUEUE_CONNECTION=${QUEUE_CONNECTION:-database}
+      - CACHE_STORE=${CACHE_STORE:-database}
+      - SESSION_DRIVER=${SESSION_DRIVER:-database}
+      
+      # Broadcasting (Reverb WebSocket)
+      - BROADCAST_CONNECTION=${BROADCAST_CONNECTION:-reverb}
+      - REVERB_SERVER_HOST=0.0.0.0
+      - REVERB_SERVER_PORT=8080
+      - REVERB_HOST=${REVERB_HOST:-localhost}
+      - REVERB_PORT=${REVERB_PORT:-8080}
+      - REVERB_SCHEME=${REVERB_SCHEME:-http}
+      - REVERB_APP_ID=${REVERB_APP_ID:-healthbridge}
+      - REVERB_APP_KEY=${REVERB_APP_KEY}
+      - REVERB_APP_SECRET=${REVERB_APP_SECRET}
+      
+      # Ollama / AI
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-gemma3:4b}
+      - OLLAMA_TIMEOUT=${OLLAMA_TIMEOUT:-60}
+      - AI_GATEWAY_SECRET=${AI_GATEWAY_SECRET}
+      - AI_PROVIDER=${AI_PROVIDER:-ollama}
+      - AI_TEXT_MODEL=${AI_TEXT_MODEL:-gemma3:4b}
+      
+      # Vite/Frontend
+      - VITE_REVERB_APP_KEY=${REVERB_APP_KEY}
+      - VITE_REVERB_HOST=${REVERB_HOST:-localhost}
+      - VITE_REVERB_PORT=${REVERB_PORT:-8080}
+      - VITE_REVERB_SCHEME=${REVERB_SCHEME:-http}
+    volumes:
+      - healthbridge-storage:/var/www/html/storage
+      - healthbridge-logs:/var/www/html/storage/logs
+    depends_on:
+      mysql:
+        condition: service_healthy
+      couchdb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      - "healthbridge.service=backend"
+      - "healthbridge.description=Laravel API and GP dashboard"
+
+  # ===========================================================================
+  # MYSQL - Primary Relational Database
+  # ===========================================================================
+  mysql:
+    <<: *healthbridge-common
+    image: mysql:8.0
+    container_name: healthbridge-mysql
+    expose:
+      - "3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-rootpassword}
+      - MYSQL_DATABASE=${DB_DATABASE:-healthbridge}
+      - MYSQL_USER=${DB_USERNAME:-healthbridge}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+      - --max_connections=200
+      - --innodb_buffer_pool_size=256M
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    labels:
+      - "healthbridge.service=database"
+      - "healthbridge.description=MySQL relational database"
+
+  # ===========================================================================
+  # COUCHDB - Document Store for Offline Sync
+  # ===========================================================================
+  couchdb:
+    <<: *healthbridge-common
+    image: couchdb:3.3
+    container_name: healthbridge-couchdb
+    expose:
+      - "5984"
+    environment:
+      - COUCHDB_USER=${COUCHDB_USERNAME:-admin}
+      - COUCHDB_PASSWORD=${COUCHDB_PASSWORD}
+    volumes:
+      - couchdb-data:/opt/couchdb/data
+      - couchdb-config:/opt/couchdb/etc/local.d
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5984/_up"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    labels:
+      - "healthbridge.service=database"
+      - "healthbridge.description=CouchDB document store for offline sync"
+
+  # ===========================================================================
+  # REDIS - Caching and Queue Backend
+  # ===========================================================================
+  redis:
+    <<: *healthbridge-common
+    image: redis:7-alpine
+    container_name: healthbridge-redis
+    expose:
+      - "6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - "healthbridge.service=cache"
+      - "healthbridge.description=Redis cache and queue backend"
+
+  # ===========================================================================
+  # OLLAMA - Local AI Inference Engine
+  # ===========================================================================
+  ollama:
+    <<: *healthbridge-common
+    image: ollama/ollama:latest
+    container_name: healthbridge-ollama
+    expose:
+      - "11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_ORIGINS=*
+    volumes:
+      - ollama-data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      - "healthbridge.service=ai"
+      - "healthbridge.description=Ollama AI inference engine"
+
+  # ===========================================================================
+  # OLLAMA INIT - Pull Models on First Run
+  # ===========================================================================
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: healthbridge-ollama-init
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_HOST=ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-gemma3:4b}
+    volumes:
+      - ./docker/scripts/init-ollama.sh:/init-ollama.sh:ro
+    entrypoint: ["/bin/sh", "/init-ollama.sh"]
+    restart: "no"
+    labels:
+      - "healthbridge.service=ai"
+      - "healthbridge.description=Ollama model initializer"
+
+# =============================================================================
+# NETWORKS
+# =============================================================================
+networks:
+  healthbridge-network:
+    driver: bridge
+    name: healthbridge-network
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.28.0.0/16
+
+# =============================================================================
+# VOLUMES
+# =============================================================================
+volumes:
+  # Persistent data volumes
+  mysql-data:
+    name: healthbridge-mysql-data
+    driver: local
+  
+  couchdb-data:
+    name: healthbridge-couchdb-data
+    driver: local
+  
+  couchdb-config:
+    name: healthbridge-couchdb-config
+    driver: local
+  
+  redis-data:
+    name: healthbridge-redis-data
+    driver: local
+  
+  ollama-data:
+    name: healthbridge-ollama-data
+    driver: local
+  
+  # Application volumes
+  healthbridge-storage:
+    name: healthbridge-storage
+    driver: local
+  
+  healthbridge-logs:
+    name: healthbridge-logs
+    driver: local
+  
+  nginx-logs:
+    name: healthbridge-nginx-logs
+    driver: local
