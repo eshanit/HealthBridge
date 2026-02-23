@@ -95,6 +95,16 @@
 └─────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
+> 📖 **For in-depth technical documentation and architectural details, see the [docs/](docs/) directory.**
+> 
+> Key documentation includes:
+> - **[System Overview](docs/architecture/system-overview.md)** - Detailed architecture and design decisions
+> - **[Data Synchronization](docs/architecture/data-synchronization.md)** - PouchDB→CouchDB→MySQL sync pipeline
+> - **[AI Integration](docs/architecture/ai-integration.md)** - MedGemma/Ollama integration patterns
+> - **[Clinical Workflow](docs/architecture/clinical-workflow.md)** - Patient workflow and data models
+> - **[API Reference](docs/api-reference/overview.md)** - REST API endpoints and patterns
+> - **[Troubleshooting](docs/troubleshooting/overview.md)** - Common issues and solutions
+
 ### Technology Stack Summary
 
 | Component | Technology | Version | Purpose |
@@ -1377,8 +1387,7 @@ HealthBridge/
 │   │   ├── pages/             # Application pages
 │   │   ├── services/          # Business logic
 │   │   └── schemas/           # Zod validation schemas
-│   ├── server/                # Server-side API routes
-│   └── docs/                  # Mobile-specific docs
+│   └── server/                # Server-side API routes
 │
 ├── healthbridge_core/         # Laravel Backend
 │   ├── app/                   # Application code
@@ -1390,16 +1399,60 @@ HealthBridge/
 │   └── resources/             # Frontend assets
 │
 ├── docs/                      # Project documentation
-│   ├── REVERB_WEBSOCKET_TROUBLESHOOTING.md
-│   ├── DATA_SYNCHRONIZATION_ARCHITECTURE.md
-│   └── MEDGEMMA_COMPETITION_WRITUP.md
+│   ├── README.md              # Documentation index
+│   ├── architecture/          # System architecture docs
+│   ├── api-reference/         # API documentation
+│   ├── deployment/            # Deployment guides
+│   ├── development/           # Development guidelines
+│   └── troubleshooting/       # Troubleshooting guides
 │
-└── GATEWAY.md                 # CouchDB integration guide
+└── README.md                  # This file
 ```
 
 ---
 
 ## Testing
+
+### Testing with Seeded Users
+
+To test the application with pre-configured user accounts, first populate the database with test data:
+
+```bash
+cd healthbridge_core
+php artisan db:seed
+```
+
+This creates test users for both the Nurse Mobile app and the HealthBridge Core specialist portal.
+
+#### Nurse Mobile App Testing
+
+For the mobile app to sync with CouchDB, the `laravelproxy` service must be running:
+
+```bash
+# Using Docker (recommended)
+docker compose up -d laravelproxy
+
+# Or for manual installation, ensure Laravel is running
+php artisan serve
+```
+
+In the Nurse Mobile app, click **"Connect to Server"** and use the following credentials:
+
+| Field | Value |
+|-------|-------|
+| **Username** | `nurse@healthbridge.org` |
+| **Password** | `password` |
+
+#### HealthBridge Core Specialist Portal
+
+The following test accounts are available for the specialist dashboard at `http://localhost/admin`:
+
+| Role | Email | Password |
+|------|-------|----------|
+| **General Practitioner** | `doctor@healthbridge.org` | `password` |
+| **Radiologist** | `radiologist@healthbridge.org` | `password` |
+
+> **Note:** Testing is currently limited to these specific roles. Additional roles may be added in future releases.
 
 ### Backend Tests
 
