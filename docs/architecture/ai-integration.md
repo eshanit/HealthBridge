@@ -21,7 +21,21 @@
 
 ## 1. Overview
 
-UtanoBridge integrates AI capabilities through a **local MedGemma model** running on Ollama. The AI system provides **read-only clinical support** - it explains, educates, and summarizes, but never diagnoses, treats, or prescribes.
+UtanoBridge integrates AI capabilities through a **local MedGemma model** running on **Ollama**. The system uses **Prism (Laravel AI SDK)** by default, which provides enhanced features including conversation memory via the `RememberConversations` trait. The AI system provides **read-only clinical support** - it explains, educates, and summarizes, but never diagnoses, treats, or prescribes.
+
+### Current Implementation
+
+| Component | Status | Description |
+|-----------|--------|-------------|
+| **Prism (Laravel AI SDK)** | ✅ Active | Primary AI client with conversation memory |
+| **OllamaClient** | 🔄 Legacy | Original client (fallback when Prism unavailable) |
+
+### Key Features of Prism
+
+- **RememberConversations Trait** - Maintains conversation history for contextual responses
+- **Structured Output Support** - Native schema validation for clinical data
+- **Agent-Based Workflows** - Specialized agents for different clinical tasks
+- **Provider Abstraction** - Easy switching between Ollama, OpenAI, Anthropic, etc.
 
 ### What AI Provides
 
@@ -209,6 +223,8 @@ $promptResult = $this->promptBuilder->build($task, $context);
 
 #### Step 5: AI Request Execution
 
+**Current Implementation (Prism - Default):**
+
 ```php
 $prismRequest = Prism::request()
     ->using(Provider::Ollama)
@@ -223,6 +239,20 @@ if (isset($this->taskSchemas[$task])) {
 }
 
 $response = $prismRequest->generate();
+```
+
+**Fallback: Legacy OllamaClient**
+
+If Prism is disabled (`ai.use_sdk_agents = false`), the system falls back to the legacy client:
+
+```php
+$generateResult = $this->ollamaClient->generate($promptResult['prompt'], [
+    'temperature' => $promptResult['metadata']['temperature'] ?? 0.3,
+    'max_tokens' => $promptResult['metadata']['max_tokens'] ?? 500,
+    'model' => config('ai.providers.ollama.model', 'gemma3:4b'),
+]);
+
+$response = $generateResult['response'];
 ```
 
 #### Step 6: Output Validation

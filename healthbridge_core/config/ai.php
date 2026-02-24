@@ -4,6 +4,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Enable Laravel AI SDK (Prism)
+    |--------------------------------------------------------------------------
+    |
+    | Set to true to enable the Laravel AI SDK (Prism) for AI requests.
+    | This provides additional features like conversation memory, structured
+    | output support, and agent-based workflows.
+    |
+    | When disabled, the legacy OllamaClient is used directly.
+    |
+    */
+
+    'use_sdk_agents' => env('AI_USE_SDK_AGENTS', true),
+
+    /*
+    |--------------------------------------------------------------------------
     | Default AI Provider Names
     |--------------------------------------------------------------------------
     |

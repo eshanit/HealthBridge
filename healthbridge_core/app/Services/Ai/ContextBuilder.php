@@ -26,7 +26,12 @@ class ContextBuilder
             $context = array_merge($context, $this->fetchComprehensivePatientContext($requestData['patient_id']));
         }
 
-        // If sessionId is provided, fetch session data
+        // If sessionId is provided at top level (from GP dashboard AI Guidance), fetch session data
+        if (isset($requestData['sessionId'])) {
+            $context = array_merge($context, $this->fetchSessionContext($requestData['sessionId']));
+        }
+
+        // If sessionId is provided in context, fetch session data
         if (isset($context['sessionId'])) {
             $context = array_merge($context, $this->fetchSessionContext($context['sessionId']));
         }
